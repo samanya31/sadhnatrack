@@ -27,6 +27,7 @@ export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'logs' | 'students'>('logs');
   const [entries, setEntries] = useState<SadhanaEntry[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export const AdminDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [regData, setRegData] = useState({ email: '', password: '', fullName: '' });
   const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEntries();
@@ -47,6 +49,7 @@ export const AdminDashboard = () => {
   };
 
   const fetchEntries = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('sadhana_entries')
@@ -246,23 +249,22 @@ export const AdminDashboard = () => {
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center gap-3">
                                 <User size={18} className="text-purple-500 shrink-0" />
-                                <span className="font-black text-slate-700">{selectedDateEntry.hearing_speaker || "No speaker provided"}</span>
+                                <span className="font-black text-slate-700">{selectedDateEntry.hearing_speaker || "No speaker"}</span>
                               </div>
                               <div className="flex items-center gap-3">
                                 <Bookmark size={18} className="text-purple-400 shrink-0" />
-                                <span className="font-bold text-slate-600 text-sm">{selectedDateEntry.hearing_title || "No topic provided"}</span>
+                                <span className="font-bold text-slate-600 text-sm">{selectedDateEntry.hearing_title || "No topic"}</span>
                               </div>
                             </div>
                           </div>
                         )}
-
                         {selectedDateEntry.reading_done && (
                           <div className="p-6 rounded-[1.5rem] bg-emerald-50/50 border border-emerald-100 space-y-3">
                             <p className="text-[10px] uppercase font-black text-emerald-600 tracking-wider">Reading Details</p>
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center gap-3">
                                 <Bookmark size={18} className="text-emerald-500 shrink-0" />
-                                <span className="font-black text-slate-700">{selectedDateEntry.reading_book || "No book provided"}</span>
+                                <span className="font-black text-slate-700">{selectedDateEntry.reading_book || "No book"}</span>
                               </div>
                               <div className="flex items-center gap-3">
                                 <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
@@ -287,18 +289,13 @@ export const AdminDashboard = () => {
                             </div>
                           </div>
                           {selectedDateEntry.seva_performed && (
-                            <div className="bg-amber-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black">
-                              {selectedDateEntry.seva_minutes || 0} mins
-                            </div>
+                            <div className="bg-amber-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black">{selectedDateEntry.seva_minutes || 0}m</div>
                           )}
                         </div>
-                        
                         {selectedDateEntry.seva_performed && (
                           <div className="bg-white/70 p-5 rounded-2xl border border-amber-200/50">
                             <p className="text-[10px] font-black text-amber-600 mb-1 uppercase tracking-wider">Sewa Details</p>
-                            <p className="font-bold text-slate-800 text-sm md:text-base leading-relaxed">
-                              {selectedDateEntry.seva_topic || "No details provided"}
-                            </p>
+                            <p className="font-bold text-slate-800 text-sm">{selectedDateEntry.seva_topic || "No details"}</p>
                           </div>
                         )}
                       </div>
@@ -320,110 +317,116 @@ export const AdminDashboard = () => {
 
   return (
     <Layout userRole="admin">
-      <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto px-1 sm:px-0">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="text-center md:text-left">
-            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Admin Console</h1>
-            <p className="text-slate-500 font-semibold mt-1">Management & Logs</p>
-          </div>
-          <div className="flex bg-slate-200/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar">
-            <button onClick={() => setActiveTab('logs')} className={`flex-1 md:flex-none px-8 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'logs' ? 'bg-white text-primary-600 shadow-xl' : 'text-slate-500'}`}>Activity</button>
-            <button onClick={() => setActiveTab('students')} className={`flex-1 md:flex-none px-8 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'students' ? 'bg-white text-primary-600 shadow-xl' : 'text-slate-500'}`}>Students</button>
-          </div>
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="animate-spin text-primary-600" size={48} />
         </div>
-
-        {activeTab === 'logs' ? (
-          <>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="relative w-full md:w-96 group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-12 w-full h-14 rounded-2xl border-slate-200 bg-white" />
-              </div>
+      ) : (
+        <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto px-1 sm:px-0">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="text-center md:text-left">
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Admin Console</h1>
+              <p className="text-slate-500 font-semibold mt-1">Management & Logs</p>
             </div>
+            <div className="flex bg-slate-200/50 backdrop-blur-sm p-1 md:p-1.5 rounded-2xl w-full md:w-fit overflow-x-auto no-scrollbar">
+              <button onClick={() => setActiveTab('logs')} className={`flex-1 md:flex-none px-8 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'logs' ? 'bg-white text-primary-600 shadow-xl' : 'text-slate-500'}`}>Activity</button>
+              <button onClick={() => setActiveTab('students')} className={`flex-1 md:flex-none px-8 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'students' ? 'bg-white text-primary-600 shadow-xl' : 'text-slate-500'}`}>Students</button>
+            </div>
+          </div>
 
-            <div className="space-y-6">
-              <div className="hidden lg:block glass-card rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-2xl">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-900 text-white/60">
-                    <tr>
-                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Student & Date</th>
-                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Wake Up</th>
-                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Rounds</th>
-                      <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Completed By</th>
-                      <th className="px-8 py-6"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {filteredEntries.map(entry => (
-                      <tr key={entry.id} className="hover:bg-primary-50/30 transition-colors cursor-pointer" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-black text-slate-500">{entry.user?.full_name?.charAt(0)}</div>
-                            <div>
-                              <p className="font-black text-slate-900">{entry.user?.full_name}</p>
-                              <p className="text-xs font-bold text-slate-400">{format(new Date(entry.date), 'MMM dd, yyyy')}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6 text-center">
-                          <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.wakeup_time)}</span>
-                        </td>
-                        <td className="px-8 py-6 text-center">
-                          <span className="text-lg font-black text-orange-600">{entry.rounds_completed}</span>
-                        </td>
-                        <td className="px-8 py-6 text-center">
-                          <span className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.rounds_completed_by)}</span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <button className="p-3 bg-slate-100 rounded-2xl text-slate-400 hover:bg-primary-600 hover:text-white"><ChevronRight size={18} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {activeTab === 'logs' ? (
+            <>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="relative w-full md:w-96 group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-12 w-full h-14 rounded-2xl border-slate-200 bg-white" />
+                </div>
               </div>
 
-              <div className="lg:hidden space-y-4">
-                {filteredEntries.map(entry => (
-                  <div key={entry.id} className="glass-card p-5 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary-100 text-primary-700 rounded-2xl flex items-center justify-center font-black text-xl">{entry.user?.full_name?.charAt(0)}</div>
-                        <div>
-                          <p className="font-black text-slate-900 text-lg leading-tight">{entry.user?.full_name}</p>
-                          <p className="text-xs font-bold text-slate-400">{format(new Date(entry.date), 'EEE, MMM dd')}</p>
+              <div className="space-y-6">
+                <div className="hidden lg:block glass-card rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-2xl">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-white/60">
+                      <tr>
+                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Student & Date</th>
+                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Wake Up</th>
+                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Rounds</th>
+                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-center">Completed By</th>
+                        <th className="px-8 py-6"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {filteredEntries.map(entry => (
+                        <tr key={entry.id} className="hover:bg-primary-50/30 transition-colors cursor-pointer" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
+                          <td className="px-8 py-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-black text-slate-500">{entry.user?.full_name?.charAt(0)}</div>
+                              <div>
+                                <p className="font-black text-slate-900">{entry.user?.full_name}</p>
+                                <p className="text-xs font-bold text-slate-400">{format(new Date(entry.date), 'MMM dd, yyyy')}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.wakeup_time)}</span>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="text-lg font-black text-orange-600">{entry.rounds_completed}</span>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.rounds_completed_by)}</span>
+                          </td>
+                          <td className="px-8 py-6 text-right">
+                            <button className="p-3 bg-slate-100 rounded-2xl text-slate-400 hover:bg-primary-600 hover:text-white"><ChevronRight size={18} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="lg:hidden space-y-4">
+                  {filteredEntries.map(entry => (
+                    <div key={entry.id} className="glass-card p-5 md:p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-primary-100 text-primary-700 rounded-2xl flex items-center justify-center font-black text-xl">{entry.user?.full_name?.charAt(0)}</div>
+                          <div>
+                            <p className="font-black text-slate-900 text-lg leading-tight">{entry.user?.full_name}</p>
+                            <p className="text-xs font-bold text-slate-400">{format(new Date(entry.date), 'EEE, MMM dd')}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <div className="bg-orange-600 text-white px-4 py-2 rounded-2xl text-xs font-black shadow-lg">{entry.rounds_completed} Rounds</div>
+                          <p className="text-[10px] font-black text-slate-400 mt-1">{formatTime(entry.rounds_completed_by)}</p>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="bg-orange-600 text-white px-4 py-2 rounded-2xl text-xs font-black shadow-lg">{entry.rounds_completed} Rounds</div>
-                        <p className="text-[10px] font-black text-slate-400 mt-1">{formatTime(entry.rounds_completed_by)}</p>
-                      </div>
                     </div>
-                  </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center gap-4 px-2">
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Directory</h2>
+                <button onClick={() => setIsModalOpen(true)} className="btn-primary rounded-2xl h-14 flex items-center gap-2 px-6 md:px-8 shadow-2xl"><UserPlus size={20} /> <span className="hidden sm:inline">Add Student</span></button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                {profiles.map(profile => (
+                  <button key={profile.id} onClick={() => setSelectedStudent(profile.id)} className="glass-card p-6 rounded-[2rem] flex flex-col items-center text-center gap-4 hover:border-primary-300 hover:shadow-2xl transition-all group border border-slate-100">
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-100 rounded-[1.5rem] flex items-center justify-center font-black text-2xl md:text-3xl text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all">{profile.full_name?.charAt(0)}</div>
+                    <div>
+                      <p className="font-black text-slate-900 text-lg md:text-xl tracking-tight">{profile.full_name}</p>
+                      <p className="text-xs font-bold text-slate-400 mt-1 truncate max-w-[200px]">{profile.email}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
-          </>
-        ) : (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center gap-4 px-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Directory</h2>
-              <button onClick={() => setIsModalOpen(true)} className="btn-primary rounded-2xl h-14 flex items-center gap-2 px-6 md:px-8 shadow-2xl"><UserPlus size={20} /> <span className="hidden sm:inline">Add Student</span></button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {profiles.map(profile => (
-                <button key={profile.id} onClick={() => setSelectedStudent(profile.id)} className="glass-card p-6 rounded-[2rem] flex flex-col items-center text-center gap-4 hover:border-primary-300 hover:shadow-2xl transition-all group border border-slate-100">
-                  <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-100 rounded-[1.5rem] flex items-center justify-center font-black text-2xl md:text-3xl text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all">{profile.full_name?.charAt(0)}</div>
-                  <div>
-                    <p className="font-black text-slate-900 text-lg md:text-xl tracking-tight">{profile.full_name}</p>
-                    <p className="text-xs font-bold text-slate-400 mt-1 truncate max-w-[200px]">{profile.email}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -431,6 +434,7 @@ export const AdminDashboard = () => {
           <div className="glass-card w-full max-w-md rounded-[2.5rem] p-8 md:p-10 relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
             <button onClick={() => setIsModalOpen(false)} className="absolute right-6 md:right-8 top-6 md:top-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={28} /></button>
             <div className="mb-8 md:mb-10 text-center"><h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">New Student</h3></div>
+            {regError && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold">{regError}</div>}
             <form onSubmit={handleRegister} className="space-y-5">
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Full Name</label><input type="text" required value={regData.fullName} onChange={(e) => setRegData({ ...regData, fullName: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Address</label><input type="email" required value={regData.email} onChange={(e) => setRegData({ ...regData, email: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
