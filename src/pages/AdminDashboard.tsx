@@ -27,7 +27,6 @@ export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'logs' | 'students'>('logs');
   const [entries, setEntries] = useState<SadhanaEntry[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
@@ -36,7 +35,6 @@ export const AdminDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [regData, setRegData] = useState({ email: '', password: '', fullName: '' });
   const [regLoading, setRegLoading] = useState(false);
-  const [regError, setRegError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchEntries();
