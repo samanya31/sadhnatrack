@@ -3,7 +3,6 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../lib/supabase';
 import { type SadhanaEntry } from '../types/index';
 import { 
-  Users, 
   Search, 
   Calendar,
   ChevronRight,
@@ -17,7 +16,6 @@ import {
   RotateCcw,
   Moon,
   Bookmark,
-  UserCheck,
   CalendarDays,
   Hammer,
   FileSpreadsheet,

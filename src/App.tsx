@@ -13,7 +13,6 @@ function App() {
   const lastFetchedUser = useRef<string | null>(null);
 
   useEffect(() => {
-    // Initial session check
     const initApp = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -31,12 +30,10 @@ function App() {
 
     initApp();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
       setSession(currentSession);
       
       if (currentSession) {
-        // ONLY fetch if the user has changed to prevent infinite loops
         if (lastFetchedUser.current !== currentSession.user.id) {
           await fetchRoleWithTimeout(currentSession.user.id);
         }
