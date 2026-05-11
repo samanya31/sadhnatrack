@@ -19,7 +19,8 @@ import {
   CalendarDays,
   Hammer,
   FileSpreadsheet,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -109,7 +110,7 @@ export const AdminDashboard = () => {
     const studentData = entries.filter(e => e.user_id === studentId);
     const headers = [
       "Date", "Wake-up Time", "Sleep Time", 
-      "Japa Rounds", "Japa Finished By", 
+      "Japa Rounds", "Japa Finished By", "Rounds Breakdown",
       "Hearing (Mins)", "Hearing Speaker", "Hearing Topic",
       "Reading (Mins)", "Reading Book", "Reading Sloka",
       "Sewa (Mins)", "Sewa Details"
@@ -121,6 +122,7 @@ export const AdminDashboard = () => {
       formatTime(e.sleep_time),
       e.rounds_completed,
       formatTime(e.rounds_completed_by),
+      e.rounds_description || "",
       e.hearing_minutes,
       e.hearing_speaker || "",
       e.hearing_title || "",
@@ -224,6 +226,17 @@ export const AdminDashboard = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* New Rounds Description Box */}
+                  {selectedDateEntry.rounds_description && (
+                    <div className="mb-10 p-6 rounded-[1.5rem] bg-orange-50/50 border border-orange-100 flex items-start gap-4">
+                      <MessageSquare className="text-orange-500 shrink-0 mt-1" size={20} />
+                      <div>
+                        <p className="text-[10px] uppercase font-black text-orange-600 tracking-wider mb-1">Rounds Breakdown</p>
+                        <p className="text-slate-700 font-bold leading-relaxed">{selectedDateEntry.rounds_description}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                     <div className="space-y-6 md:space-y-8">
@@ -371,7 +384,14 @@ export const AdminDashboard = () => {
                             <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.wakeup_time)}</span>
                           </td>
                           <td className="px-8 py-6 text-center">
-                            <span className="text-lg font-black text-orange-600">{entry.rounds_completed}</span>
+                            <div className="flex flex-col items-center">
+                              <span className="text-lg font-black text-orange-600">{entry.rounds_completed}</span>
+                              {entry.rounds_description && (
+                                <span className="text-[9px] text-orange-400 font-bold max-w-[100px] truncate" title={entry.rounds_description}>
+                                  {entry.rounds_description}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-8 py-6 text-center">
                             <span className="bg-orange-50 text-orange-600 px-3 py-1.5 rounded-xl text-xs font-black">{formatTime(entry.rounds_completed_by)}</span>
@@ -401,6 +421,12 @@ export const AdminDashboard = () => {
                           <p className="text-[10px] font-black text-slate-400 mt-1">{formatTime(entry.rounds_completed_by)}</p>
                         </div>
                       </div>
+                      {entry.rounds_description && (
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Breakdown</p>
+                           <p className="text-xs font-bold text-slate-600">{entry.rounds_description}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

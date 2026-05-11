@@ -16,10 +16,11 @@ export interface SadhanaEntry {
   sleep_time?: string;
   rounds_completed: number;
   rounds_completed_by: string;
+  rounds_description?: string; // New: e.g. "8 morning, 8 night"
   hearing_done: boolean;
   hearing_minutes: number;
-  hearing_title: string;   // This will be "Topic"
-  hearing_speaker?: string; // New
+  hearing_title: string;
+  hearing_speaker?: string;
   reading_done: boolean;
   reading_minutes: number;
   reading_book?: string;

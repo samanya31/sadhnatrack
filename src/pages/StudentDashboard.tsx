@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Hammer,
   User,
-  Bookmark
+  Bookmark,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -28,6 +29,7 @@ export const StudentDashboard = () => {
     sleep_time: '',
     rounds_completed: 0,
     rounds_completed_by: '',
+    rounds_description: '',
     hearing_done: false,
     hearing_minutes: 0,
     hearing_title: '',
@@ -63,6 +65,7 @@ export const StudentDashboard = () => {
         sleep_time: '',
         rounds_completed: 0,
         rounds_completed_by: '',
+        rounds_description: '',
         hearing_done: false,
         hearing_minutes: 0,
         hearing_title: '',
@@ -147,11 +150,22 @@ export const StudentDashboard = () => {
                 <input type="number" min="0" required value={formData.rounds_completed} onChange={(e) => setFormData({ ...formData, rounds_completed: parseInt(e.target.value) || 0 })} className="input-field h-14 rounded-2xl" />
               </div>
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Completed By (Time)</label>
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Final Completion (Time)</label>
                 <div className="relative">
                   <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input type="time" value={formData.rounds_completed_by} onChange={(e) => setFormData({ ...formData, rounds_completed_by: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" />
                 </div>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <MessageSquare size={14} className="text-slate-400" /> Chanting Breakdown (Optional)
+                </label>
+                <textarea 
+                  value={formData.rounds_description} 
+                  onChange={(e) => setFormData({ ...formData, rounds_description: e.target.value })} 
+                  className="input-field min-h-[80px] py-4 rounded-2xl" 
+                  placeholder="e.g. 8 in morning, 4 in afternoon, 4 in night"
+                />
               </div>
             </div>
           </section>
