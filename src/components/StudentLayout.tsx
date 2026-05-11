@@ -28,7 +28,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     navigate('/login');
   };
 

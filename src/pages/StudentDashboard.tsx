@@ -73,7 +73,7 @@ export const StudentDashboard = () => {
           .select('*')
           .eq('user_id', user.id)
           .eq('date', formData.date)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setEntryId(data.id);
@@ -85,9 +85,14 @@ export const StudentDashboard = () => {
             rounds_completed_by: data.rounds_completed_by || '',
             rounds_description: data.rounds_description || '',
             hearing_done: data.hearing_done || false,
+            mangal_arti: data.mangal_arti || false,
+            tulasi_arti: data.tulasi_arti || false,
+            morning_japa: data.morning_japa || false,
+            morning_hearing: data.morning_hearing || false,
+            morning_comment: data.morning_comment || '',
             hearing_minutes: data.hearing_minutes || 0,
-            hearing_title: data.hearing_title || '',
             hearing_speaker: data.hearing_speaker || '',
+            hearing_title: data.hearing_title || '',
             reading_done: data.reading_done || false,
             reading_minutes: data.reading_minutes || 0,
             reading_book: data.reading_book || '',
@@ -95,11 +100,6 @@ export const StudentDashboard = () => {
             seva_performed: data.seva_performed || false,
             seva_minutes: data.seva_minutes || 0,
             seva_topic: data.seva_topic || '',
-            mangal_arti: data.mangal_arti || false,
-            tulasi_arti: data.tulasi_arti || false,
-            morning_japa: data.morning_japa || false,
-            morning_hearing: data.morning_hearing || false,
-            morning_comment: data.morning_comment || '',
             status: data.status || 'draft'
           });
           setLastSaved(new Date(data.created_at));
@@ -159,7 +159,7 @@ export const StudentDashboard = () => {
         .from('sadhana_entries')
         .upsert(payload, { onConflict: 'user_id, date' })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

@@ -31,7 +31,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     navigate('/login');
   };
 

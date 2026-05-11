@@ -17,7 +17,6 @@ import {
   Sunrise,
   Check,
   FileSpreadsheet,
-  Hash,
   Moon,
   MessageSquare,
   Hammer
@@ -215,7 +214,7 @@ export const AdminDashboard = () => {
                   <p className="text-slate-500 font-medium text-sm">{selectedProfile?.email}</p>
                 </div>
               </div>
-              <button onClick={() => exportToExcel(selectedProfile.id, selectedProfile.full_name)} className="bg-slate-900 text-white rounded-2xl h-14 px-8 flex items-center justify-center gap-3 shadow-xl hover:bg-slate-800 transition-all active:scale-95 font-black text-sm">
+              <button onClick={() => exportToExcel(selectedProfile.id, selectedProfile.full_name)} className="bg-emerald-800 text-white rounded-2xl h-14 px-8 flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-900 transition-all active:scale-95 font-black text-sm">
                 <FileSpreadsheet size={20} />
                 Export to Excel
               </button>
@@ -301,8 +300,7 @@ export const AdminDashboard = () => {
                         </span>
                       </div>
                       {selectedDateEntry.rounds_description && (
-                        <div className="flex items-center gap-2 text-orange-500 bg-orange-50/50 px-3 py-1.5 rounded-full border border-orange-100/50">
-                          <Hash size={12} />
+                        <div className="flex items-center gap-2 text-blue-600 bg-blue-50/60 px-3 py-1.5 rounded-full border border-blue-100/60">
                           <span className="text-[10px] font-bold italic truncate max-w-[200px]" title={selectedDateEntry.rounds_description}>
                             {selectedDateEntry.rounds_description}
                           </span>
@@ -312,7 +310,7 @@ export const AdminDashboard = () => {
                   </div>
 
                   {/* Wake Up Card */}
-                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-3 group hover:shadow-md transition-all duration-300 min-h-[180px]">
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-5 md:p-6 flex flex-col items-center justify-center gap-3 group hover:shadow-md transition-all duration-300 min-h-[140px] md:min-h-[180px]">
                     <div className="w-12 h-12 bg-blue-50 rounded-[1.2rem] flex items-center justify-center text-blue-500 transition-transform group-hover:scale-110 duration-300">
                       <Sunrise size={28} />
                     </div>
@@ -323,7 +321,7 @@ export const AdminDashboard = () => {
                   </div>
 
                   {/* Sleep Card */}
-                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center gap-3 group hover:shadow-md transition-all duration-300 min-h-[180px]">
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-5 md:p-6 flex flex-col items-center justify-center gap-3 group hover:shadow-md transition-all duration-300 min-h-[140px] md:min-h-[180px]">
                     <div className="w-12 h-12 bg-indigo-50 rounded-[1.2rem] flex items-center justify-center text-indigo-500 transition-transform group-hover:scale-110 duration-300">
                       <Moon size={28} />
                     </div>
@@ -337,37 +335,39 @@ export const AdminDashboard = () => {
                 </div>
 
                 {/* Attendance Row */}
-                <div className="bg-white/60 backdrop-blur-sm rounded-[2rem] border border-white p-4 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 px-4 py-2">
-                    <div className="w-1 h-6 bg-slate-200 rounded-full"></div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Attendance Status</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {[
-                      { label: 'Mangal Arti', value: selectedDateEntry.mangal_arti },
-                      { label: 'Tulasi Arti', value: selectedDateEntry.tulasi_arti },
-                      { label: 'Morning Japa', value: selectedDateEntry.morning_japa },
-                      { label: 'Morning Hearing', value: selectedDateEntry.morning_hearing },
-                    ].map((item) => (
-                      <div 
-                        key={item.label} 
-                        className={`flex items-center gap-2.5 px-5 py-2.5 rounded-2xl border transition-all ${
-                          item.value 
-                            ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm' 
-                            : 'bg-slate-50/50 border-slate-100/50 text-slate-400'
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${item.value ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
-                          {item.value ? <Check size={12} strokeWidth={4} /> : <div className="w-1 h-1 bg-current rounded-full" />}
+                <div className="bg-white/60 backdrop-blur-sm rounded-[2rem] border border-white p-4 shadow-sm">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3 px-2 sm:px-4 py-2">
+                      <div className="w-1 h-6 bg-slate-200 rounded-full"></div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Attendance Status</span>
+                    </div>
+                    <div className="w-full md:w-auto grid grid-cols-1 min-[420px]:grid-cols-2 md:flex md:flex-nowrap gap-3">
+                      {[
+                        { label: 'Mangal Arti', value: selectedDateEntry.mangal_arti },
+                        { label: 'Tulasi Arti', value: selectedDateEntry.tulasi_arti },
+                        { label: 'Morning Japa', value: selectedDateEntry.morning_japa },
+                        { label: 'Morning Hearing', value: selectedDateEntry.morning_hearing },
+                      ].map((item) => (
+                        <div 
+                          key={item.label} 
+                          className={`flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-2xl border transition-all w-full md:w-auto md:shrink-0 ${
+                            item.value 
+                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm' 
+                              : 'bg-slate-50/50 border-slate-100/50 text-slate-400'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center ${item.value ? 'bg-emerald-500 text-white' : 'bg-slate-200'}`}>
+                            {item.value ? <Check size={12} strokeWidth={4} /> : <div className="w-1 h-1 bg-current rounded-full" />}
+                          </div>
+                          <span className="text-xs font-black tracking-tight">{item.label}</span>
                         </div>
-                        <span className="text-xs font-black tracking-tight">{item.label}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                   {selectedDateEntry.morning_comment && (
                     <div className="w-full mt-4 pt-4 border-t border-slate-100 flex items-start gap-3 px-4">
                       <MessageSquare className="text-rose-400 shrink-0 mt-0.5" size={14} />
-                      <p className="text-[10px] font-bold text-slate-600 leading-relaxed italic">
+                      <p className="text-xs md:text-sm font-bold text-slate-600 leading-relaxed italic">
                         "{selectedDateEntry.morning_comment}"
                       </p>
                     </div>

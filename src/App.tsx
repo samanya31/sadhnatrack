@@ -16,38 +16,64 @@ function App() {
 
   useEffect(() => {
     let mounted = true;
-    const fetchRole = async (userId: string) => {
-      // Safety timeout: fallback to student after 5 seconds if fetch hangs
-      const timeout = setTimeout(() => {
-        if (mounted && loading) {
-          console.warn("Role fetch timed out, falling back to student.");
-          setRole('student');
-          setLoading(false);
-        }
-      }, 10000);
+    const resolveRoleFromSession = (currentSession: Session, dbRole?: string | null) => {
+      const metadataRole =
+        (currentSession.user.user_metadata?.role as string | undefined) ||
+        (currentSession.user.app_metadata?.role as string | undefined);
+      return dbRole || metadataRole || 'student';
+    };
+
+    const fetchRole = async (currentSession: Session) => {
+      if (!mounted) return;
+
+      // Resolve quickly from session metadata/default to avoid spinner lock.
+      setRole(resolveRoleFromSession(currentSession));
+      setLoading(false);
 
       try {
-        const { data } = await supabase
+        const roleQuery = supabase
           .from('profiles')
           .select('role')
-          .eq('id', userId)
+          .eq('id', currentSession.user.id)
           .maybeSingle();
-        
-        clearTimeout(timeout);
 
-        if (mounted) {
-          setRole(data?.role || 'student');
-          setLoading(false);
+        // Best-effort DB role lookup; skip silently if slow.
+        const timeoutMs = 4000;
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => resolve(null), timeoutMs);
+        });
+
+        const result = await Promise.race([roleQuery, timeoutPromise]);
+        if (!mounted || result === null) return;
+
+        if (result.error) throw result.error;
+
+        const dbRole = result.data?.role;
+        if (dbRole) {
+          setRole(resolveRoleFromSession(currentSession, dbRole));
         }
-      } catch (err) {
-        clearTimeout(timeout);
-        console.error("Role fetch failed:", err);
-        if (mounted) {
-          setRole('student');
-          setLoading(false);
-        }
+      } catch {
+        // Ignore DB role failures; fallback role already applied above.
       }
     };
+
+    const initializeSession = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      setSession(currentSession);
+
+      if (currentSession) {
+        lastFetchedUser.current = currentSession.user.id;
+        setLoading(true);
+        void fetchRole(currentSession);
+      } else {
+        setRole(null);
+        setLoading(false);
+      }
+    };
+
+    void initializeSession();
 
     // Listen for auth changes (handles initial load, login, and logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
@@ -59,7 +85,7 @@ function App() {
         if (lastFetchedUser.current !== currentSession.user.id) {
           lastFetchedUser.current = currentSession.user.id;
           setLoading(true);
-          await fetchRole(currentSession.user.id);
+          void fetchRole(currentSession);
         } else {
           setLoading(false);
         }
