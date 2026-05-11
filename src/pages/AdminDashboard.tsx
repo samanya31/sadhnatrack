@@ -434,9 +434,16 @@ export const AdminDashboard = () => {
                         </div>
                         <div>
                           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daily Seva</h5>
-                          <p className={`text-2xl font-black tracking-tight ${selectedDateEntry.seva_performed ? 'text-slate-900' : 'text-slate-300'}`}>
+                          <p className={`text-xl font-semibold tracking-tight ${selectedDateEntry.seva_performed ? 'text-slate-700' : 'text-slate-300'}`}>
                             {selectedDateEntry.seva_performed ? 'Service Completed' : 'No Service Logged'}
                           </p>
+                          {selectedDateEntry.seva_performed && selectedDateEntry.seva_topic && (
+                            <div className="mt-2.5 p-4 bg-amber-100/40 rounded-2xl border border-amber-200/30">
+                              <p className="text-sm font-semibold text-amber-900/80 leading-relaxed italic">
+                                "{selectedDateEntry.seva_topic}"
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                       {selectedDateEntry.seva_performed && (
