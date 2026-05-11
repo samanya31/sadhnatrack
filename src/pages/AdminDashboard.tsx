@@ -5,6 +5,7 @@ import { type SadhanaEntry } from '../types/index';
 import { 
   Search, 
   Calendar,
+  CalendarDays,
   ChevronRight,
   Clock,
   UserPlus,
@@ -13,17 +14,13 @@ import {
   ArrowLeft,
   BookOpen,
   Headphones,
-  RotateCcw,
-  Moon,
-  Bookmark,
-  CalendarDays,
-  Hammer,
-  FileSpreadsheet,
-  User,
-  MessageSquare,
-  Hash,
   Sunrise,
-  Check
+  Check,
+  FileSpreadsheet,
+  Hash,
+  Moon,
+  MessageSquare,
+  Hammer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'react-router-dom';

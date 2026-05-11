@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
 import { supabase } from '../lib/supabase';
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -11,7 +9,6 @@ import {
   ResponsiveContainer, 
   LineChart, 
   Line,
-  Legend,
   AreaChart,
   Area
 } from 'recharts';

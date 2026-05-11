@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LogOut, 
-  LayoutDashboard, 
-  Users, 
+  Users,
   ShieldCheck, 
   Menu, 
   X, 
   ChevronRight,
   ClipboardList,
-  Settings,
   TrendingUp
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -121,7 +119,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
               <div className="space-y-1">
                 {navItems.map((item) => {
                   const isPathActive = location.pathname === item.path;
-                  const isTabActive = item.path === '/admin' ? activeTab === item.id : isPathActive;
                   const isActive = isPathActive && (item.path !== '/admin' || activeTab === item.id);
 
                   return (

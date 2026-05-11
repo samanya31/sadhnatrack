@@ -27,7 +27,7 @@ function App() {
       }, 10000);
 
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', userId)
@@ -50,7 +50,7 @@ function App() {
     };
 
     // Listen for auth changes (handles initial load, login, and logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
       if (!mounted) return;
       
       setSession(currentSession);
