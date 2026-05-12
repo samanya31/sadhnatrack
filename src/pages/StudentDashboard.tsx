@@ -140,6 +140,15 @@ export const StudentDashboard = () => {
     fetchTodayEntry();
   }, [formData.date]);
 
+  const sanitizePayload = (data: typeof formData) => {
+    const sanitized = { ...data };
+    // Convert empty strings to null for time and numeric fields to avoid DB errors
+    if (sanitized.wakeup_time === "") sanitized.wakeup_time = null as any;
+    if (sanitized.sleep_time === "") sanitized.sleep_time = null as any;
+    if (sanitized.rounds_completed_by === "") sanitized.rounds_completed_by = null as any;
+    return sanitized;
+  };
+
   // Auto-save logic (Debounced)
   const saveDraft = async (dataToSave: typeof formData) => {
     if (dataToSave.status === 'submitted') return; // Don't auto-save if already submitted
@@ -150,7 +159,7 @@ export const StudentDashboard = () => {
       if (!user) return;
 
       const payload = {
-        ...dataToSave,
+        ...sanitizePayload(dataToSave),
         user_id: user.id,
         ...(entryIdRef.current ? { id: entryIdRef.current } : {})
       };
@@ -218,7 +227,7 @@ export const StudentDashboard = () => {
         if (!user) throw new Error('No user found');
 
         const payload = {
-          ...formData,
+          ...sanitizePayload(formData),
           user_id: user.id,
           status: 'submitted',
           ...(entryIdRef.current ? { id: entryIdRef.current } : {})
