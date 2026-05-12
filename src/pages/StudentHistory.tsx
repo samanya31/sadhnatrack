@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
 import { supabase } from '../lib/supabase';
 import { 
@@ -6,7 +6,6 @@ import {
   Clock, 
   BookOpen, 
   Headphones, 
-  CheckCircle2, 
   Sunrise, 
   Moon,
   MessageSquare,
@@ -17,10 +16,7 @@ import {
   ClipboardList,
   Target,
   Award,
-  Check,
-  CalendarDays,
-  FileSpreadsheet,
-  ArrowLeft
+  Check
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { 
@@ -33,7 +29,7 @@ import {
 export const StudentHistory = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [monthEntries, setMonthEntries] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const daysInMonth = eachDayOfInterval({
@@ -188,7 +184,6 @@ export const StudentHistory = () => {
                 {daysInMonth.map((day, idx) => {
                   const entry = monthEntries.find(e => isSameDay(parseISO(e.date), day));
                   const isSelected = isSameDay(day, selectedDate);
-                  const isToday = isSameDay(day, new Date());
                   
                   return (
                     <button
