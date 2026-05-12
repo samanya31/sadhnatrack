@@ -6,7 +6,8 @@ import {
   Menu, 
   X, 
   ChevronRight,
-  ClipboardList
+  ClipboardList,
+  History
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -33,8 +34,9 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   };
 
   const navItems = [
-    { name: 'Sadhna Entry', path: '/dashboard', icon: PenLine, description: 'Log daily progress' },
-    { name: 'Reports', path: '/reports', icon: BarChart3, description: 'View analytics' },
+    { name: 'Today\'s Entry', path: '/dashboard', icon: PenLine, description: 'Log daily progress' },
+    { name: 'Sadhana History', path: '/history', icon: History, description: 'View past logs' },
+    { name: 'Analytical Reports', path: '/reports', icon: BarChart3, description: 'View analytics' },
   ];
 
   return (

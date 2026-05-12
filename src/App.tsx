@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
+import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
@@ -138,10 +139,19 @@ function App() {
         />
 
         <Route 
+          path="/history" 
+          element={
+            session ? (
+              role === 'admin' ? <Navigate to="/admin" replace /> : <StudentHistory />
+            ) : <Navigate to="/login" replace />
+          } 
+        />
+
+        <Route 
           path="/reports" 
           element={
             session ? (
-              role === 'admin' ? <Navigate to="/admin" replace /> : <StudentReports />
+              role === 'admin' ? <Navigate to="/admin/reports" replace /> : <StudentReports />
             ) : <Navigate to="/login" replace />
           } 
         />
