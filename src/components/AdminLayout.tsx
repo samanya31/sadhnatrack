@@ -54,7 +54,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
   ] as const;
 
   const filteredNavItems = navItems.filter(item => 
-    userProfile && (item.roles as string[]).includes(userProfile.role)
+    userProfile && (item.roles as readonly string[]).includes(userProfile.role)
   );
 
   return (

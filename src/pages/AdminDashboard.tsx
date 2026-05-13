@@ -20,13 +20,15 @@ import {
   Moon,
   MessageSquare,
   Hammer,
-  Building2,
-  ChevronDown
+  Building2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'react-router-dom';
 import { 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
 import type { UserProfile, BACE } from '../types/index';
 
@@ -161,7 +163,7 @@ export const AdminDashboard = () => {
       if (error) throw error;
       alert('Student registered!');
       setIsModalOpen(false);
-      setRegData({ email: '', password: '', fullName: '', baceId: userProfile?.role === 'super_admin' ? '' : userProfile?.bace_id || '' });
+      setRegData({ email: '', password: '', fullName: '', baceId: userProfile?.role === 'super_admin' ? '' : userProfile?.bace_id || '', role: 'student' });
       fetchProfiles();
     } catch (err: any) {
       setRegError(err.message);
@@ -219,10 +221,7 @@ export const AdminDashboard = () => {
     document.body.removeChild(link);
   };
 
-  const filteredEntries = entries.filter(entry => 
-    entry.user?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entry.user?.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Removed unused filteredEntries
 
   const studentEntries = selectedStudent 
     ? entries.filter(e => e.user_id === selectedStudent)
