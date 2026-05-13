@@ -5,6 +5,7 @@ import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
+import { AdminBaces } from './pages/AdminBaces';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -125,7 +126,7 @@ function App() {
       <Routes>
         <Route 
           path="/login" 
-          element={!session ? <Login /> : <Navigate to={role === 'admin' ? "/admin" : "/dashboard"} replace />} 
+          element={!session ? <Login /> : <Navigate to={(role === 'admin' || role === 'super_admin') ? "/admin" : "/dashboard"} replace />} 
         />
         
         {/* Protected Dashboard Route */}
@@ -133,7 +134,7 @@ function App() {
           path="/dashboard" 
           element={
             session ? (
-              role === 'admin' ? <Navigate to="/admin" replace /> : <StudentDashboard />
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentDashboard />
             ) : <Navigate to="/login" replace />
           } 
         />
@@ -142,7 +143,7 @@ function App() {
           path="/history" 
           element={
             session ? (
-              role === 'admin' ? <Navigate to="/admin" replace /> : <StudentHistory />
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentHistory />
             ) : <Navigate to="/login" replace />
           } 
         />
@@ -151,7 +152,7 @@ function App() {
           path="/reports" 
           element={
             session ? (
-              role === 'admin' ? <Navigate to="/admin/reports" replace /> : <StudentReports />
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin/reports" replace /> : <StudentReports />
             ) : <Navigate to="/login" replace />
           } 
         />
@@ -160,7 +161,7 @@ function App() {
         <Route 
           path="/admin" 
           element={
-            session && role === 'admin' ? (
+            session && (role === 'admin' || role === 'super_admin') ? (
               <AdminDashboard />
             ) : (
               <Navigate to={session ? "/dashboard" : "/login"} replace />
@@ -171,7 +172,7 @@ function App() {
         <Route 
           path="/admin/students" 
           element={
-            session && role === 'admin' ? (
+            session && (role === 'admin' || role === 'super_admin') ? (
               <AdminDashboard />
             ) : (
               <Navigate to={session ? "/dashboard" : "/login"} replace />
@@ -182,7 +183,7 @@ function App() {
         <Route 
           path="/admin/reports" 
           element={
-            session && role === 'admin' ? (
+            session && (role === 'admin' || role === 'super_admin') ? (
               <AdminReports />
             ) : (
               <Navigate to={session ? "/dashboard" : "/login"} replace />
@@ -190,7 +191,18 @@ function App() {
           } 
         />
 
-        <Route path="/" element={<Navigate to={session ? (role === 'admin' ? "/admin" : "/dashboard") : "/login"} replace />} />
+        <Route 
+          path="/admin/baces" 
+          element={
+            session && role === 'super_admin' ? (
+              <AdminBaces />
+            ) : (
+              <Navigate to={session ? "/admin" : "/login"} replace />
+            )
+          } 
+        />
+
+        <Route path="/" element={<Navigate to={session ? ((role === 'admin' || role === 'super_admin') ? "/admin" : "/dashboard") : "/login"} replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

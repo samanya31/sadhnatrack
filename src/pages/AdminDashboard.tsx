@@ -19,16 +19,16 @@ import {
   FileSpreadsheet,
   Moon,
   MessageSquare,
-  Hammer
+  Hammer,
+  Building2,
+  ChevronDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useLocation } from 'react-router-dom';
 import { 
-  PieChart, 
-  Pie, 
-  Cell, 
   ResponsiveContainer 
 } from 'recharts';
+import type { UserProfile, BACE } from '../types/index';
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'logs' | 'students'>('logs');
@@ -49,35 +49,76 @@ export const AdminDashboard = () => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [baces, setBaces] = useState<BACE[]>([]);
+  const [selectedBace, setSelectedBace] = useState<string>('all');
   
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [drilldownStudent, setDrilldownStudent] = useState<any | null>(null);
   const [filterDate, setFilterDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [regData, setRegData] = useState({ email: '', password: '', fullName: '' });
+  const [regData, setRegData] = useState({ email: '', password: '', fullName: '', baceId: '', role: 'student' });
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchEntries();
-    fetchProfiles();
+    const initialize = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*, bace:baces(name)')
+          .eq('id', user.id)
+          .single();
+        setUserProfile(profile);
+        
+        if (profile?.role === 'super_admin') {
+          const { data: baceData } = await supabase.from('baces').select('*');
+          setBaces(baceData || []);
+        } else {
+          setSelectedBace(profile?.bace_id || 'all');
+          setRegData(prev => ({ ...prev, baceId: profile?.bace_id || '' }));
+        }
+      }
+    };
+    initialize();
   }, []);
 
+  useEffect(() => {
+    if (userProfile) {
+      fetchEntries();
+      fetchProfiles();
+    }
+  }, [userProfile, selectedBace]);
+
   const fetchProfiles = async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('role', 'student').order('full_name');
+    let query = supabase.from('profiles').select('*').eq('role', 'student').order('full_name');
+    
+    if (selectedBace !== 'all') {
+      query = query.eq('bace_id', selectedBace);
+    }
+
+    const { data } = await query;
     setProfiles(data || []);
   };
 
   const fetchEntries = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sadhana_entries')
         .select(`
           *,
-          user:profiles(full_name, email)
+          user:profiles!inner(full_name, email, bace_id)
         `)
         .order('date', { ascending: false });
+
+      if (selectedBace !== 'all') {
+        query = query.eq('user.bace_id', selectedBace);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setEntries(data || []);
@@ -110,13 +151,17 @@ export const AdminDashboard = () => {
         email: regData.email,
         password: regData.password,
         options: {
-          data: { full_name: regData.fullName }
+          data: { 
+            full_name: regData.fullName,
+            role: (regData as any).role || 'student',
+            bace_id: regData.baceId
+          }
         }
       });
       if (error) throw error;
       alert('Student registered!');
       setIsModalOpen(false);
-      setRegData({ email: '', password: '', fullName: '' });
+      setRegData({ email: '', password: '', fullName: '', baceId: userProfile?.role === 'super_admin' ? '' : userProfile?.bace_id || '' });
       fetchProfiles();
     } catch (err: any) {
       setRegError(err.message);
@@ -477,82 +522,153 @@ export const AdminDashboard = () => {
         <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto px-1 sm:px-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="text-center md:text-left">
-              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-                {activeTab === 'logs' ? 'Admin Console' : 'Student Directory'}
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4 justify-center md:justify-start">
+                {drilldownStudent && activeTab === 'logs' && (
+                  <button 
+                    onClick={() => setDrilldownStudent(null)}
+                    className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-primary-600 transition-all shadow-sm"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
+                {activeTab === 'logs' 
+                  ? (drilldownStudent ? `${drilldownStudent.full_name}'s Logs` : 'Activity Log') 
+                  : 'Student Directory'}
               </h1>
               <p className="text-slate-500 font-semibold mt-1">
-                {activeTab === 'logs' ? 'Management & Logs' : 'User Management'}
+                {userProfile?.role === 'super_admin' 
+                  ? (activeTab === 'logs' ? (drilldownStudent ? 'Detailed activity history' : 'Select a student to view logs') : 'Global Student Directory')
+                  : `${userProfile?.bace?.name || 'Center'} ${activeTab === 'logs' ? 'Management' : 'Directory'}`
+                }
               </p>
             </div>
-          </div>
 
-          {activeTab === 'logs' ? (
-            <>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="relative w-full md:w-96 group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-                  <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-12 w-full h-14 rounded-2xl border-slate-200 bg-white" />
+            {userProfile?.role === 'super_admin' && (
+              <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
+                <div className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                  <Building2 size={16} className="text-primary-500" />
+                  Select Center
                 </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="hidden lg:block glass-card rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-2xl">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-white/60">
-                      <tr>
-                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
-                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em]">Sadhana Date</th>
-                        <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {filteredEntries.map(entry => (
-                        <tr key={entry.id} className="hover:bg-primary-50/10 transition-all cursor-pointer group" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
-                          <td className="px-8 py-5">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all shadow-sm">
-                                {entry.user?.full_name?.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-black text-slate-900 text-lg group-hover:text-primary-600 transition-colors">{entry.user?.full_name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{entry.user?.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 group-hover:bg-white group-hover:border-primary-100 transition-all">
-                              <Calendar size={14} className="text-slate-400" />
-                              <span className="font-black text-slate-600">{format(new Date(entry.date), 'MMMM dd, yyyy')}</span>
-                            </div>
-                          </td>
-                          <td className="px-8 py-5 text-right">
-                            <div className="inline-flex items-center gap-2 text-primary-600 font-black text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                              View Details
-                              <ChevronRight size={16} />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="lg:hidden space-y-4">
-                  {filteredEntries.map(entry => (
-                    <div key={entry.id} className="glass-card p-5 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between group active:scale-95 transition-all" onClick={() => { setFilterDate(entry.date); setSelectedStudent(entry.user_id); }}>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center font-black text-xl">{entry.user?.full_name?.charAt(0)}</div>
-                        <div>
-                          <p className="font-black text-slate-900 text-lg leading-tight">{entry.user?.full_name}</p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{format(new Date(entry.date), 'MMM dd, yyyy')}</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={20} className="text-slate-300" />
-                    </div>
+                <select
+                  value={selectedBace}
+                  onChange={(e) => setSelectedBace(e.target.value)}
+                  className="bg-slate-50 border-none outline-none font-black text-slate-700 py-3 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
+                >
+                  <option value="all">Global View (All BACEs)</option>
+                  {baces.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
-                </div>
+                </select>
               </div>
-            </>
+            )}
+          </div>
+          {activeTab === 'logs' ? (
+            <div className="space-y-6">
+              {!drilldownStudent && (
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="relative w-full md:w-96 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                    <input 
+                      type="text" 
+                      placeholder="Search students..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="input-field pl-12 w-full h-14 rounded-2xl border-slate-200 bg-white shadow-sm" 
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {!drilldownStudent ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {profiles.filter(p => 
+                      p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      p.email?.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).map(profile => (
+                      <button 
+                        key={profile.id} 
+                        onClick={() => setDrilldownStudent(profile)}
+                        className="bg-white p-6 rounded-[2rem] flex items-center gap-4 border border-slate-100 shadow-sm hover:border-primary-300 hover:shadow-xl transition-all group text-left"
+                      >
+                        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center font-black text-xl text-slate-400 group-hover:bg-primary-600 group-hover:text-white transition-all">
+                          {profile.full_name?.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-black text-slate-900 text-lg tracking-tight truncate">{profile.full_name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{profile.email?.split('@')[0]}</p>
+                        </div>
+                        <ChevronRight size={20} className="text-slate-300 group-hover:text-primary-600 transition-colors" />
+                      </button>
+                    ))}
+                    {profiles.length === 0 && (
+                      <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                        <p className="text-slate-400 font-bold">No students found in this center.</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="glass-card rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-xl overflow-x-auto">
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                      <thead>
+                        <tr className="bg-slate-900 text-white uppercase text-[10px] font-black tracking-[0.2em]">
+                          <th className="px-8 py-6">Student</th>
+                          <th className="px-8 py-6 text-center">Sadhana Date</th>
+                          <th className="px-8 py-6 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50 bg-white/50">
+                        {entries
+                          .filter(e => e.user_id === drilldownStudent.id)
+                          .map((entry) => (
+                            <tr key={entry.id} className="group hover:bg-slate-50/80 transition-all">
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-5">
+                                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all shadow-inner">
+                                    {entry.user?.full_name?.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-black text-slate-900 text-base tracking-tight">{entry.user?.full_name}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{entry.user?.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6">
+                                <div className="flex justify-center">
+                                  <div className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-black flex items-center gap-3 shadow-sm border border-slate-200/50">
+                                    <Calendar size={16} className="text-slate-400" />
+                                    {format(new Date(entry.date), 'MMM dd, yyyy')}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6 text-right">
+                                <button 
+                                  onClick={() => setSelectedStudent(entry.id)}
+                                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                                >
+                                  View Log
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        {entries.filter(e => e.user_id === drilldownStudent.id).length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="px-8 py-20 text-center">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300">
+                                  <FileSpreadsheet size={32} />
+                                </div>
+                                <p className="text-slate-400 font-bold">No sadhana entries found for this student.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="space-y-8">
               <div className="flex justify-between items-center gap-4 px-2">
@@ -580,12 +696,58 @@ export const AdminDashboard = () => {
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
           <div className="glass-card w-full max-w-md rounded-[2.5rem] p-8 md:p-10 relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
             <button onClick={() => setIsModalOpen(false)} className="absolute right-6 md:right-8 top-6 md:top-8 text-slate-400 hover:text-slate-900 transition-colors"><X size={28} /></button>
-            <div className="mb-8 md:mb-10 text-center"><h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">New Student</h3></div>
+            <div className="mb-8 md:mb-10 text-center">
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                {regData.role === 'admin' ? 'New BACE Admin' : 'New Student'}
+              </h3>
+            </div>
             {regError && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold">{regError}</div>}
             <form onSubmit={handleRegister} className="space-y-5">
+              {userProfile?.role === 'super_admin' && (
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Select Role</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all ${
+                        regData.role !== 'admin' ? 'bg-primary-50 border-primary-600 text-primary-600' : 'bg-slate-50 border-transparent text-slate-400'
+                      }`}
+                      onClick={() => setRegData({ ...regData, role: 'student' })}
+                    >
+                      Student
+                    </button>
+                    <button
+                      type="button"
+                      className={`py-3 rounded-xl font-black text-[10px] uppercase tracking-widest border-2 transition-all ${
+                        regData.role === 'admin' ? 'bg-indigo-50 border-indigo-600 text-indigo-600' : 'bg-slate-50 border-transparent text-slate-400'
+                      }`}
+                      onClick={() => setRegData({ ...regData, role: 'admin' })}
+                    >
+                      BACE Admin
+                    </button>
+                  </div>
+                </div>
+              )}
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Full Name</label><input type="text" required value={regData.fullName} onChange={(e) => setRegData({ ...regData, fullName: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Address</label><input type="email" required value={regData.email} onChange={(e) => setRegData({ ...regData, email: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Password</label><input type="password" required value={regData.password} onChange={(e) => setRegData({ ...regData, password: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
+              
+              {userProfile?.role === 'super_admin' && (
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Assign to BACE</label>
+                  <select
+                    required
+                    value={regData.baceId}
+                    onChange={(e) => setRegData({ ...regData, baceId: e.target.value })}
+                    className="input-field h-12 md:h-14 rounded-xl w-full bg-slate-50 border-none px-4 font-bold text-slate-700"
+                  >
+                    <option value="">Select a center...</option>
+                    {baces.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <button type="submit" disabled={regLoading} className="w-full h-14 md:h-16 btn-primary rounded-2xl flex items-center justify-center gap-3 text-base font-black shadow-xl mt-4">
                 {regLoading ? <Loader2 className="animate-spin" size={24} /> : <UserPlus size={24} />} {regLoading ? 'Registering...' : 'Add Student'}
               </button>

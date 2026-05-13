@@ -7,10 +7,12 @@ import {
   X, 
   ChevronRight,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  Building2
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import type { UserProfile } from '../types/index';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -22,12 +24,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setAdminEmail(user.email ?? null);
-    });
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*, bace:baces(name)')
+          .eq('id', user.id)
+          .single();
+        setUserProfile(profile);
+      }
+    };
+    loadProfile();
   }, []);
 
   const handleLogout = async () => {
@@ -36,10 +47,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
   };
 
   const navItems = [
-    { id: 'logs', name: 'Activity Log', icon: ClipboardList, description: 'Manage student logs', path: '/admin' },
-    { id: 'students', name: 'Student Directory', icon: Users, description: 'User management', path: '/admin/students' },
-    { id: 'reports', name: 'Analytical Reports', icon: TrendingUp, description: 'View progress charts', path: '/admin/reports' },
+    { id: 'logs', name: 'Activity Log', icon: ClipboardList, description: 'Manage student logs', path: '/admin', roles: ['admin', 'super_admin'] },
+    { id: 'students', name: 'Student Directory', icon: Users, description: 'User management', path: '/admin/students', roles: ['admin', 'super_admin'] },
+    { id: 'reports', name: 'Analytical Reports', icon: TrendingUp, description: 'View progress charts', path: '/admin/reports', roles: ['admin', 'super_admin'] },
+    { id: 'baces', name: 'Manage BACEs', icon: Building2, description: 'Center management', path: '/admin/baces', roles: ['super_admin'] },
   ] as const;
+
+  const filteredNavItems = navItems.filter(item => 
+    userProfile && (item.roles as string[]).includes(userProfile.role)
+  );
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
@@ -72,7 +88,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
             <div className="hidden md:flex items-center gap-4">
               <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200/50 shadow-sm">
                 <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">BACE</span>
+                <span className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">
+                  {userProfile?.role === 'super_admin' ? 'All Centers' : (userProfile?.bace?.name || 'BACE')}
+                </span>
               </div>
             </div>
           </div>
@@ -80,11 +98,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
           <div className="flex items-center gap-3 sm:gap-6">
             <div className="hidden sm:flex flex-col items-end text-right">
               <p className="text-sm font-black text-slate-900 truncate max-w-[150px]">
-                {adminEmail?.split('@')[0] || 'Administrator'}
+                {userProfile?.full_name || userProfile?.email?.split('@')[0] || 'Administrator'}
               </p>
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary-50 text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-primary-100/50">
                 <ShieldCheck size={10} />
-                Admin
+                {userProfile?.role === 'super_admin' ? 'Super Admin' : 'BACE Admin'}
               </div>
             </div>
 
@@ -117,7 +135,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
                 Administration
               </p>
               <div className="space-y-1">
-                {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
                   const isPathActive = location.pathname === item.path;
                   const isActive = isPathActive && (item.path !== '/admin' || activeTab === item.id);
 

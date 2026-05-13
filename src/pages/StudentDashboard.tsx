@@ -54,12 +54,29 @@ export const StudentDashboard = () => {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [entryId, setEntryId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const entryIdRef = React.useRef<string | null>(null);
 
   // Keep ref in sync with state for use in closures
   React.useEffect(() => {
     entryIdRef.current = entryId;
   }, [entryId]);
+
+  // Fetch user profile on mount
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*, bace:baces(name)')
+          .eq('id', user.id)
+          .single();
+        setUserProfile(data);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Fetch today's entry on mount or date change
   React.useEffect(() => {
@@ -261,7 +278,15 @@ export const StudentDashboard = () => {
               </div>
               Sadhna Entry
             </h1>
-            <p className="text-slate-500 mt-3 font-medium text-lg">Log your daily spiritual progress and stay consistent</p>
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
+              <p className="text-slate-500 font-medium text-lg">Log your daily spiritual progress</p>
+              {userProfile?.bace?.name && (
+                <div className="px-3 py-1 bg-primary-50 text-primary-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border border-primary-100 flex items-center gap-2">
+                  <Hammer size={12} className="rotate-45" />
+                  {userProfile.bace.name}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col items-center md:items-end gap-2">

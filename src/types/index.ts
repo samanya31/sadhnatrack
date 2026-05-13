@@ -1,11 +1,20 @@
-export type UserRole = 'student' | 'admin';
+export type UserRole = 'student' | 'admin' | 'super_admin';
+
+export interface BACE {
+  id: string;
+  name: string;
+  access_key: string;
+  created_at: string;
+}
 
 export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
   role: UserRole;
+  bace_id?: string;
   created_at: string;
+  bace?: BACE;
 }
 
 export interface SadhanaEntry {
