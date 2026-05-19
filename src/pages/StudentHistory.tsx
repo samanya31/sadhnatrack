@@ -449,6 +449,40 @@ export const StudentHistory = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Exercise Wide Card */}
+                  <div className={`md:col-span-2 rounded-[2.5rem] border p-5 md:p-8 flex items-center justify-between gap-6 md:gap-8 hover:shadow-md transition-all ${
+                    selectedDateEntry.exercise_done 
+                      ? 'bg-teal-50/50 border-teal-100' 
+                      : 'bg-white border-slate-100'
+                  }`}>
+                    <div className="flex items-center gap-6">
+                      <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center ${
+                        selectedDateEntry.exercise_done ? 'bg-teal-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300'
+                      }`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.4 14.4 9.6 9.6"/><path d="M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z"/><path d="m21.5 21.5-1.4-1.4"/><path d="M3.9 3.9 2.5 2.5"/><path d="M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829L9.939 3.575a2 2 0 1 1 2.829 2.829z"/></svg>
+                      </div>
+                      <div>
+                        <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical Exercise</h5>
+                        <p className={`text-xl font-semibold tracking-tight ${selectedDateEntry.exercise_done ? 'text-slate-700' : 'text-slate-300'}`}>
+                          {selectedDateEntry.exercise_done ? 'Exercise Completed' : 'No Exercise Logged'}
+                        </p>
+                        {selectedDateEntry.exercise_done && selectedDateEntry.exercise_description && (
+                          <div className="mt-2.5 p-4 bg-teal-100/40 rounded-2xl border border-teal-200/30">
+                            <p className="text-sm font-semibold text-teal-900/80 leading-relaxed italic">
+                              "{selectedDateEntry.exercise_description}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {selectedDateEntry.exercise_done && (
+                      <div className="text-right shrink-0">
+                        <p className="text-3xl font-black text-teal-600">{selectedDateEntry.exercise_minutes}m</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ) : (

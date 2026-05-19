@@ -406,6 +406,30 @@ export const StudentReports = () => {
                 <Area name="Seva Minutes" type="monotone" dataKey="seva_minutes" stroke="#f43f5e" strokeWidth={4} fill="url(#colorSeva)" dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} />
               </AreaChart>
             </ChartSection>
+
+            {/* Exercise Minutes */}
+            <ChartSection title="Exercise" subtitle="Physical Activity Tracker" icon={Clock} color="text-teal-600" iconBg="bg-teal-100">
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id="colorExercise" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="formattedDate" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} dy={10} />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} 
+                  domain={[0, 120]} 
+                  ticks={[0, 30, 60, 90, 120]}
+                  tickFormatter={(v) => `${v}m`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area name="Exercise Minutes" type="monotone" dataKey="exercise_minutes" stroke="#14b8a6" strokeWidth={4} fill="url(#colorExercise)" dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} />
+              </AreaChart>
+            </ChartSection>
           </div>
         )}
       </div>

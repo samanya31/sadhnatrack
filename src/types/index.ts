@@ -37,6 +37,9 @@ export interface SadhanaEntry {
   seva_performed: boolean;
   seva_minutes?: number;
   seva_topic?: string;
+  exercise_done: boolean;
+  exercise_minutes: number;
+  exercise_description?: string;
   mangal_arti: boolean;
   tulasi_arti: boolean;
   morning_japa: boolean;

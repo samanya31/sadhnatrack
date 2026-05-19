@@ -17,13 +17,92 @@ import {
   User,
   Bookmark,
   MessageSquare,
-  BarChart3
+  BarChart3,
+  Dumbbell
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
+
+  // 12-hour time picker helper
+  const parse24to12 = (time24: string) => {
+    if (!time24) return { hour: '', minute: '', period: 'AM' };
+    const [h, m] = time24.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return { hour: String(hour12), minute: String(m).padStart(2, '0'), period };
+  };
+
+  const to24 = (hour: string, minute: string, period: string) => {
+    if (!hour || !minute) return '';
+    let h = parseInt(hour);
+    if (period === 'AM' && h === 12) h = 0;
+    else if (period === 'PM' && h !== 12) h += 12;
+    return `${String(h).padStart(2, '0')}:${minute}`;
+  };
+
+  const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
+    const parsed = parse24to12(value);
+    const update = (field: string, val: string) => {
+      const next = { ...parsed, [field]: val };
+      if (next.hour && next.minute) onChange(to24(next.hour, next.minute, next.period));
+      else if (field === 'period') onChange(to24(parsed.hour, parsed.minute, val));
+    };
+    return (
+      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-all shadow-sm">
+        <Icon size={18} className="text-slate-400 shrink-0" />
+        <div className="flex items-center gap-1.5 flex-1 justify-center">
+          <select
+            disabled={disabled}
+            value={parsed.hour}
+            onChange={e => update('hour', e.target.value)}
+            className="bg-transparent font-bold text-slate-800 text-center focus:outline-none cursor-pointer w-10 appearance-none text-base border-none p-0"
+          >
+            <option value="">HH</option>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+              <option key={h} value={String(h)}>{String(h).padStart(2, '0')}</option>
+            ))}
+          </select>
+          <span className="font-bold text-slate-300">:</span>
+          <select
+            disabled={disabled}
+            value={parsed.minute}
+            onChange={e => update('minute', e.target.value)}
+            className="bg-transparent font-bold text-slate-800 text-center focus:outline-none cursor-pointer w-10 appearance-none text-base border-none p-0"
+          >
+            <option value="">MM</option>
+            {Array.from({ length: 12 }, (_, i) => i * 5).map(m => (
+              <option key={m} value={String(m).padStart(2, '0')}>{String(m).padStart(2, '0')}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200/50">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => update('period', 'AM')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              parsed.period === 'AM'
+                ? 'bg-white text-slate-850 shadow-sm font-extrabold border border-slate-100'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >AM</button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => update('period', 'PM')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              parsed.period === 'PM'
+                ? 'bg-white text-slate-850 shadow-sm font-extrabold border border-slate-100'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >PM</button>
+        </div>
+      </div>
+    );
+  };
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
@@ -44,6 +123,9 @@ export const StudentDashboard = () => {
     seva_performed: false,
     seva_minutes: 0,
     seva_topic: '',
+    exercise_done: false,
+    exercise_minutes: 0,
+    exercise_description: '',
     mangal_arti: false,
     tulasi_arti: false,
     morning_japa: false,
@@ -117,6 +199,9 @@ export const StudentDashboard = () => {
             seva_performed: data.seva_performed || false,
             seva_minutes: data.seva_minutes || 0,
             seva_topic: data.seva_topic || '',
+            exercise_done: data.exercise_done || false,
+            exercise_minutes: data.exercise_minutes || 0,
+            exercise_description: data.exercise_description || '',
             status: data.status || 'draft'
           });
           setLastSaved(new Date(data.created_at));
@@ -141,6 +226,9 @@ export const StudentDashboard = () => {
             seva_performed: false,
             seva_minutes: 0,
             seva_topic: '',
+            exercise_done: false,
+            exercise_minutes: 0,
+            exercise_description: '',
             mangal_arti: false,
             tulasi_arti: false,
             morning_japa: false,
@@ -226,6 +314,9 @@ export const StudentDashboard = () => {
     formData.seva_performed,
     formData.seva_minutes,
     formData.seva_topic,
+    formData.exercise_done,
+    formData.exercise_minutes,
+    formData.exercise_description,
     formData.mangal_arti,
     formData.tulasi_arti,
     formData.morning_japa,
@@ -363,17 +454,11 @@ export const StudentDashboard = () => {
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Sleep Time (Prev. Night)</label>
-                <div className="relative">
-                  <Moon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input type="time" value={formData.sleep_time} onChange={(e) => setFormData({ ...formData, sleep_time: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" />
-                </div>
+                <TimePicker icon={Moon} value={formData.sleep_time} onChange={(val) => setFormData({ ...formData, sleep_time: val })} disabled={formData.status === 'submitted'} />
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Wake-up Time</label>
-                <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input type="time" required value={formData.wakeup_time} onChange={(e) => setFormData({ ...formData, wakeup_time: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" />
-                </div>
+                <TimePicker icon={Clock} value={formData.wakeup_time} onChange={(val) => setFormData({ ...formData, wakeup_time: val })} disabled={formData.status === 'submitted'} />
               </div>
             </div>
           </section>
@@ -464,10 +549,7 @@ export const StudentDashboard = () => {
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Final Completion (Time)</label>
-                <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input type="time" value={formData.rounds_completed_by} onChange={(e) => setFormData({ ...formData, rounds_completed_by: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" />
-                </div>
+                <TimePicker icon={Clock} value={formData.rounds_completed_by} onChange={(val) => setFormData({ ...formData, rounds_completed_by: val })} disabled={formData.status === 'submitted'} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -624,6 +706,54 @@ export const StudentDashboard = () => {
                     <div className="relative">
                       <Hammer className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input type="text" value={formData.seva_topic} onChange={(e) => setFormData({ ...formData, seva_topic: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" placeholder="e.g. Temple Cleaning" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Exercise Section */}
+          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-600 shadow-sm">
+                  <Dumbbell size={24} />
+                </div>
+                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Physical Exercise</h2>
+              </div>
+              {formData.status !== 'submitted' && (
+                <button
+                  type="button"
+                  onClick={() => saveDraft(formData)}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
+                >
+                  <Save size={14} />
+                  Save Draft
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <input type="checkbox" id="exercise_done" checked={formData.exercise_done} onChange={(e) => setFormData({ ...formData, exercise_done: e.target.checked })} className="w-6 h-6 text-primary-600 rounded-lg focus:ring-primary-500 cursor-pointer" />
+                <label htmlFor="exercise_done" className="text-sm font-black text-slate-700 cursor-pointer uppercase tracking-wider">Yes, I exercised today</label>
+              </div>
+
+              {formData.exercise_done && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-300">
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Exercise Minutes</label>
+                    <div className="relative">
+                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input type="number" min="0" value={formData.exercise_minutes} onChange={(e) => setFormData({ ...formData, exercise_minutes: parseInt(e.target.value) || 0 })} className="input-field pl-12 h-14 rounded-2xl" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Exercise Type / Details</label>
+                    <div className="relative">
+                      <Dumbbell className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input type="text" value={formData.exercise_description} onChange={(e) => setFormData({ ...formData, exercise_description: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" placeholder="e.g. Jogging, Yoga, Gym" />
                     </div>
                   </div>
                 </div>
