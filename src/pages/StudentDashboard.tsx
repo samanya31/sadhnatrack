@@ -47,23 +47,24 @@ export const StudentDashboard = () => {
 
   const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
     const parsed = parse24to12(value);
-    const [isHourOpen, setIsHourOpen] = useState(false);
-    const [isMinuteOpen, setIsMinuteOpen] = useState(false);
-    const hourRef = React.useRef<HTMLDivElement>(null);
-    const minuteRef = React.useRef<HTMLDivElement>(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'hour' | 'minute'>('hour');
+    const containerRef = React.useRef<HTMLDivElement>(null);
 
+    // Outside click listener
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (hourRef.current && !hourRef.current.contains(event.target as Node)) {
-          setIsHourOpen(false);
-        }
-        if (minuteRef.current && !minuteRef.current.contains(event.target as Node)) {
-          setIsMinuteOpen(false);
+        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+          setIsOpen(false);
         }
       };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+      if (isOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [isOpen]);
 
     const update = (field: string, val: string) => {
       let nextHour = field === 'hour' ? val : parsed.hour;
@@ -84,147 +85,239 @@ export const StudentDashboard = () => {
       onChange(to24(nextHour, nextMinute, nextPeriod));
     };
 
+    const handleHourSelect = (h: string) => {
+      update('hour', h);
+      // Auto-transition to minutes after a short delay for premium feel
+      setTimeout(() => {
+        setActiveTab('minute');
+      }, 150);
+    };
+
+    const handleMinuteSelect = (m: string) => {
+      update('minute', m);
+      // Auto-close after selecting minute
+      setTimeout(() => {
+        setIsOpen(false);
+      }, 150);
+    };
+
     const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
     const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 
+    // Compute hand angle and coordinates
+    let handAngle = 0;
+    if (activeTab === 'hour' && parsed.hour) {
+      const hNum = parseInt(parsed.hour);
+      handAngle = (hNum % 12) * 30;
+    } else if (activeTab === 'minute' && parsed.minute) {
+      const mNum = parseInt(parsed.minute);
+      handAngle = mNum * 6;
+    }
+
     return (
-      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-all shadow-sm">
-        <style>{`
-          .scrollbar-none::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-        <Icon size={18} className="text-slate-400 shrink-0" />
-        
-        {/* Dropdowns container */}
-        <div className="flex items-center gap-1 flex-1 justify-center relative">
+      <div ref={containerRef} className="relative w-full">
+        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-all shadow-sm">
+          <Icon size={18} className="text-slate-400 shrink-0" />
           
-          {/* Hour Dropdown */}
-          <div className="relative" ref={hourRef}>
+          {/* Clickable Display Area */}
+          <div 
+            onClick={() => !disabled && setIsOpen(!isOpen)}
+            className="relative flex-1 h-full flex items-center justify-center min-w-0 cursor-pointer"
+          >
+            <div className="flex items-center gap-1 font-bold text-slate-800 select-none">
+              {parsed.hour && parsed.minute ? (
+                <>
+                  <span className="text-lg font-black">{parsed.hour.padStart(2, '0')}</span>
+                  <span className="text-slate-300">:</span>
+                  <span className="text-lg font-black">{parsed.minute}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-400 font-extrabold text-sm">HH</span>
+                  <span className="text-slate-350">:</span>
+                  <span className="text-slate-400 font-extrabold text-sm">MM</span>
+                </>
+              )}
+              <span className="text-[10px] text-slate-350 ml-1">▼</span>
+            </div>
+          </div>
+
+          {/* AM/PM Switcher on the right (keeps it side-by-side) */}
+          <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200/50 relative z-10">
             <button
               type="button"
               disabled={disabled}
-              onClick={() => {
-                setIsHourOpen(!isHourOpen);
-                setIsMinuteOpen(false);
-              }}
-              className={`px-2 py-1.5 rounded-xl font-bold text-slate-800 focus:outline-none transition-all hover:bg-slate-50 border border-transparent hover:border-slate-100 flex items-center gap-1 select-none active:scale-95 ${
-                parsed.hour ? 'text-lg font-black' : 'text-slate-400 font-extrabold text-sm'
+              onClick={() => update('period', 'AM')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+                parsed.period === 'AM'
+                  ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
+                  : 'text-slate-400 hover:text-slate-600'
               }`}
-            >
-              <span>{parsed.hour ? parsed.hour.padStart(2, '0') : 'HH'}</span>
-              <span className="text-[10px] text-slate-350 shrink-0">▼</span>
-            </button>
-            
-            {isHourOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-16 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto z-50 p-1 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-1 duration-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    update('hour', '');
-                    setIsHourOpen(false);
-                  }}
-                  className="py-1.5 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-100"
-                >
-                  HH
-                </button>
-                {hours.map(h => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => {
-                      update('hour', h);
-                      setIsHourOpen(false);
-                    }}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      parsed.hour === h
-                        ? 'bg-primary-600 text-white font-black'
-                        : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {h.padStart(2, '0')}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <span className="font-bold text-slate-300 select-none">:</span>
-
-          {/* Minute Dropdown */}
-          <div className="relative" ref={minuteRef}>
+            >AM</button>
             <button
               type="button"
               disabled={disabled}
-              onClick={() => {
-                setIsMinuteOpen(!isMinuteOpen);
-                setIsHourOpen(false);
-              }}
-              className={`px-2 py-1.5 rounded-xl font-bold text-slate-800 focus:outline-none transition-all hover:bg-slate-50 border border-transparent hover:border-slate-100 flex items-center gap-1 select-none active:scale-95 ${
-                parsed.minute ? 'text-lg font-black' : 'text-slate-400 font-extrabold text-sm'
+              onClick={() => update('period', 'PM')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+                parsed.period === 'PM'
+                  ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
+                  : 'text-slate-400 hover:text-slate-600'
               }`}
-            >
-              <span>{parsed.minute ? parsed.minute : 'MM'}</span>
-              <span className="text-[10px] text-slate-355 shrink-0">▼</span>
-            </button>
-            
-            {isMinuteOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-16 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto z-50 p-1 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-1 duration-150">
-                <button
-                  type="button"
-                  onClick={() => {
-                    update('minute', '');
-                    setIsMinuteOpen(false);
-                  }}
-                  className="py-1.5 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-100"
-                >
-                  MM
-                </button>
-                {minutes.map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => {
-                      update('minute', m);
-                      setIsMinuteOpen(false);
-                    }}
-                    className={`py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      parsed.minute === m
-                        ? 'bg-primary-600 text-white font-black'
-                        : 'text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            )}
+            >PM</button>
           </div>
         </div>
 
-        {/* AM/PM Switcher */}
-        <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200/50">
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => update('period', 'AM')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
-              parsed.period === 'AM'
-                ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >AM</button>
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => update('period', 'PM')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
-              parsed.period === 'PM'
-                ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >PM</button>
-        </div>
+        {/* Visual Clock Picker Popover */}
+        {isOpen && (
+          <div className="absolute left-1/2 -translate-x-1/2 mt-3 w-72 bg-white border border-slate-200 rounded-[2rem] shadow-xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Header: Tab selection */}
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-4 border border-slate-200/30">
+              <button
+                type="button"
+                onClick={() => setActiveTab('hour')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-150 ${
+                  activeTab === 'hour'
+                    ? 'bg-white text-primary-600 shadow-sm border border-slate-200/40'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Hours
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('minute')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all duration-150 ${
+                  activeTab === 'minute'
+                    ? 'bg-white text-primary-600 shadow-sm border border-slate-200/40'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                Minutes
+              </button>
+            </div>
+
+            {/* Selected Value Indicator */}
+            <div className="text-center mb-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('hour')}
+                className={`text-2xl font-black transition-all ${
+                  activeTab === 'hour' ? 'text-primary-600 scale-110' : 'text-slate-700 hover:text-slate-900'
+                }`}
+              >
+                {parsed.hour ? parsed.hour.padStart(2, '0') : 'HH'}
+              </button>
+              <span className="text-2xl font-black text-slate-300 mx-2">:</span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('minute')}
+                className={`text-2xl font-black transition-all ${
+                  activeTab === 'minute' ? 'text-primary-600 scale-110' : 'text-slate-700 hover:text-slate-900'
+                }`}
+              >
+                {parsed.minute ? parsed.minute : 'MM'}
+              </button>
+            </div>
+
+            {/* Circular Clock Dial */}
+            <div className="w-52 h-52 rounded-full border border-slate-100 bg-slate-50/50 relative flex items-center justify-center mx-auto my-3 select-none">
+              {/* Clock Center Dot */}
+              <div className="absolute w-2 h-2 rounded-full bg-primary-600 z-20" />
+              
+              {/* Clock Hand */}
+              {((activeTab === 'hour' && parsed.hour) || (activeTab === 'minute' && parsed.minute)) && (
+                <div 
+                  className="absolute bottom-1/2 left-1/2 w-0.5 bg-primary-500 origin-bottom transition-all duration-200 z-10"
+                  style={{ 
+                    height: '76px', 
+                    transform: `translateX(-50%) rotate(${handAngle}deg)` 
+                  }}
+                >
+                  {/* Circle tip representing the selected state */}
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary-600 border border-white" />
+                </div>
+              )}
+
+              {/* Render Numbers */}
+              {activeTab === 'hour' ? (
+                hours.map((h) => {
+                  const hNum = parseInt(h);
+                  const angle = (hNum * 30 * Math.PI) / 180;
+                  const r = 76; // radius of numbers inside 208px container
+                  const x = Math.sin(angle) * r;
+                  const y = -Math.cos(angle) * r;
+                  const isSelected = parsed.hour && parseInt(parsed.hour) === hNum;
+
+                  return (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => handleHourSelect(h)}
+                      style={{
+                        transform: `translate(${x}px, ${y}px)`,
+                      }}
+                      className={`absolute w-8 h-8 rounded-full text-xs font-black flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30 scale-110 z-20'
+                          : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900 active:scale-90 z-20'
+                      }`}
+                    >
+                      {h.padStart(2, '0')}
+                    </button>
+                  );
+                })
+              ) : (
+                minutes.map((m) => {
+                  const mNum = parseInt(m);
+                  const angle = (mNum * 6 * Math.PI) / 180;
+                  const r = 76; // radius of numbers inside 208px container
+                  const x = Math.sin(angle) * r;
+                  const y = -Math.cos(angle) * r;
+                  const isSelected = parsed.minute && parseInt(parsed.minute) === mNum;
+
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => handleMinuteSelect(m)}
+                      style={{
+                        transform: `translate(${x}px, ${y}px)`,
+                      }}
+                      className={`absolute w-8 h-8 rounded-full text-[10px] font-black flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-primary-600 text-white shadow-md shadow-primary-500/30 scale-110 z-20'
+                          : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-900 active:scale-90 z-20'
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Control buttons */}
+            <div className="flex gap-2 mt-4 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+                className="flex-1 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="flex-1 py-2 bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
