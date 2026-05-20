@@ -47,13 +47,18 @@ export const StudentDashboard = () => {
 
   const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
     const parsed = parse24to12(value);
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    const [isHourOpen, setIsHourOpen] = useState(false);
+    const [isMinuteOpen, setIsMinuteOpen] = useState(false);
+    const hourRef = React.useRef<HTMLDivElement>(null);
+    const minuteRef = React.useRef<HTMLDivElement>(null);
 
     React.useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
-        if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-          setIsOpen(false);
+        if (hourRef.current && !hourRef.current.contains(event.target as Node)) {
+          setIsHourOpen(false);
+        }
+        if (minuteRef.current && !minuteRef.current.contains(event.target as Node)) {
+          setIsMinuteOpen(false);
         }
       };
       document.addEventListener('mousedown', handleClickOutside);
@@ -79,156 +84,147 @@ export const StudentDashboard = () => {
       onChange(to24(nextHour, nextMinute, nextPeriod));
     };
 
-    const handleClear = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onChange('');
-      setIsOpen(false);
-    };
-
     const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
     const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 
     return (
-      <div className="relative w-full" ref={containerRef}>
-        {/* Trigger Button */}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center justify-between bg-white border rounded-2xl px-4 py-2 h-14 w-full focus:outline-none transition-all shadow-sm select-none ${
-            isOpen 
-              ? 'border-primary-500 ring-1 ring-primary-500' 
-              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Icon size={18} className={`shrink-0 transition-colors ${isOpen || value ? 'text-primary-600' : 'text-slate-400'}`} />
-            <div className="flex items-baseline gap-1 font-bold">
-              {parsed.hour && parsed.minute ? (
-                <>
-                  <span className="text-slate-800 text-lg tracking-tight">{parsed.hour.padStart(2, '0')}</span>
-                  <span className="text-slate-400 text-sm animate-pulse">:</span>
-                  <span className="text-slate-800 text-lg tracking-tight">{parsed.minute}</span>
-                  <span className="ml-1.5 text-xs text-primary-600 bg-primary-50/80 px-2 py-0.5 rounded-lg border border-primary-100/50 tracking-wider font-extrabold uppercase">
-                    {parsed.period}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-slate-350 text-lg tracking-tight font-black">HH</span>
-                  <span className="text-slate-200 text-sm">:</span>
-                  <span className="text-slate-355 text-lg tracking-tight font-black">MM</span>
-                  <span className="ml-1.5 text-slate-300 text-[10px] tracking-widest font-black uppercase">
-                    AM
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {parsed.hour && parsed.minute && !disabled && (
-              <span
-                onClick={handleClear}
-                className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all cursor-pointer mr-1"
-                title="Clear time"
-              >
-                <X size={14} />
-              </span>
-            )}
-            <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-          </div>
-        </button>
-
-        {/* Custom Popover */}
-        {isOpen && (
-          <div className="absolute left-0 mt-2.5 w-72 bg-white/95 backdrop-blur-md border border-slate-200 rounded-3xl shadow-[0_20px_50px_rgba(15,23,42,0.15)] p-4 z-50 animate-in fade-in slide-in-from-top-3 duration-200 flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-150/60">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Select Time</span>
-              {parsed.hour && parsed.minute && (
+      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-all shadow-sm">
+        <style>{`
+          .scrollbar-none::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
+        <Icon size={18} className="text-slate-400 shrink-0" />
+        
+        {/* Dropdowns container */}
+        <div className="flex items-center gap-1 flex-1 justify-center relative">
+          
+          {/* Hour Dropdown */}
+          <div className="relative" ref={hourRef}>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                setIsHourOpen(!isHourOpen);
+                setIsMinuteOpen(false);
+              }}
+              className={`px-2 py-1.5 rounded-xl font-bold text-slate-800 focus:outline-none transition-all hover:bg-slate-50 border border-transparent hover:border-slate-100 flex items-center gap-1 select-none active:scale-95 ${
+                parsed.hour ? 'text-lg font-black' : 'text-slate-400 font-extrabold text-sm'
+              }`}
+            >
+              <span>{parsed.hour ? parsed.hour.padStart(2, '0') : 'HH'}</span>
+              <span className="text-[10px] text-slate-350 shrink-0">▼</span>
+            </button>
+            
+            {isHourOpen && (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-16 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto z-50 p-1 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-1 duration-150">
                 <button
                   type="button"
-                  onClick={handleClear}
-                  className="text-[10px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest transition-colors"
+                  onClick={() => {
+                    update('hour', '');
+                    setIsHourOpen(false);
+                  }}
+                  className="py-1.5 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-100"
                 >
-                  Clear Selection
+                  HH
                 </button>
-              )}
-            </div>
-
-            {/* Time Columns Grid */}
-            <div className="grid grid-cols-2 gap-4 h-48 mb-3">
-              {/* Hours Column */}
-              <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 select-none scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center sticky top-0 bg-white/95 py-1 mb-1 block">Hour</span>
-                {hours.map(h => {
-                  const isSelected = parsed.hour === h;
-                  return (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => update('hour', h)}
-                      className={`py-2 rounded-xl font-black text-sm transition-all duration-150 active:scale-95 ${
-                        isSelected
-                          ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/25 border border-primary-600 scale-[1.02]'
-                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-transparent'
-                      }`}
-                    >
-                      {h.padStart(2, '0')}
-                    </button>
-                  );
-                })}
+                {hours.map(h => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => {
+                      update('hour', h);
+                      setIsHourOpen(false);
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      parsed.hour === h
+                        ? 'bg-primary-600 text-white font-black'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {h.padStart(2, '0')}
+                  </button>
+                ))}
               </div>
-
-              {/* Minutes Column */}
-              <div className="flex flex-col gap-1.5 overflow-y-auto pr-1 select-none scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center sticky top-0 bg-white/95 py-1 mb-1 block">Minute</span>
-                {minutes.map(m => {
-                  const isSelected = parsed.minute === m;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => update('minute', m)}
-                      className={`py-2 rounded-xl font-black text-sm transition-all duration-150 active:scale-95 ${
-                        isSelected
-                          ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/25 border border-primary-600 scale-[1.02]'
-                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-transparent'
-                      }`}
-                    >
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* AM/PM Switcher */}
-            <div className="pt-3 border-t border-slate-150/60 flex justify-between items-center select-none">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Period</span>
-              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200/50">
-                <button
-                  type="button"
-                  onClick={() => update('period', 'AM')}
-                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
-                    parsed.period === 'AM'
-                      ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >AM</button>
-                <button
-                  type="button"
-                  onClick={() => update('period', 'PM')}
-                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
-                    parsed.period === 'PM'
-                      ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >PM</button>
-              </div>
-            </div>
+            )}
           </div>
-        )}
+
+          <span className="font-bold text-slate-300 select-none">:</span>
+
+          {/* Minute Dropdown */}
+          <div className="relative" ref={minuteRef}>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                setIsMinuteOpen(!isMinuteOpen);
+                setIsHourOpen(false);
+              }}
+              className={`px-2 py-1.5 rounded-xl font-bold text-slate-800 focus:outline-none transition-all hover:bg-slate-50 border border-transparent hover:border-slate-100 flex items-center gap-1 select-none active:scale-95 ${
+                parsed.minute ? 'text-lg font-black' : 'text-slate-400 font-extrabold text-sm'
+              }`}
+            >
+              <span>{parsed.minute ? parsed.minute : 'MM'}</span>
+              <span className="text-[10px] text-slate-355 shrink-0">▼</span>
+            </button>
+            
+            {isMinuteOpen && (
+              <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-16 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-xl max-h-48 overflow-y-auto z-50 p-1 flex flex-col gap-0.5 scrollbar-none animate-in fade-in slide-in-from-top-1 duration-150">
+                <button
+                  type="button"
+                  onClick={() => {
+                    update('minute', '');
+                    setIsMinuteOpen(false);
+                  }}
+                  className="py-1.5 rounded-lg text-xs font-black text-slate-400 hover:bg-slate-100"
+                >
+                  MM
+                </button>
+                {minutes.map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      update('minute', m);
+                      setIsMinuteOpen(false);
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      parsed.minute === m
+                        ? 'bg-primary-600 text-white font-black'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* AM/PM Switcher */}
+        <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 border border-slate-200/50">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => update('period', 'AM')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+              parsed.period === 'AM'
+                ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >AM</button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => update('period', 'PM')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+              parsed.period === 'PM'
+                ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >PM</button>
+        </div>
       </div>
     );
   };
@@ -556,7 +552,7 @@ export const StudentDashboard = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6 md:space-y-10">
           {/* Basic Info */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
+          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50 relative z-20">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm">
@@ -651,7 +647,7 @@ export const StudentDashboard = () => {
           </section>
 
           {/* Japa */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
+          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50 relative z-10">
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
