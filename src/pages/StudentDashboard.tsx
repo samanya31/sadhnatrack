@@ -47,6 +47,7 @@ export const StudentDashboard = () => {
   const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
     const parsed = parse24to12(value);
     const [isOpen, setIsOpen] = useState(false);
+    const [openTime, setOpenTime] = useState(0);
     const [focusedField, setFocusedField] = useState<'hour' | 'minute'>('hour');
     
     const [localHour, setLocalHour] = useState(parsed.hour);
@@ -59,6 +60,7 @@ export const StudentDashboard = () => {
     // Sync local state when parent value changes or modal opens
     React.useEffect(() => {
       if (isOpen) {
+        setOpenTime(Date.now());
         setLocalHour(parsed.hour);
         setLocalMinute(parsed.minute);
         setLocalPeriod(parsed.period);
@@ -171,7 +173,8 @@ export const StudentDashboard = () => {
         <button
           type="button"
           disabled={disabled}
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             setIsOpen(true);
           }}
           className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full text-left focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all shadow-sm group hover:border-slate-350 cursor-pointer disabled:cursor-not-allowed"
@@ -179,7 +182,7 @@ export const StudentDashboard = () => {
           <Icon size={18} className="text-slate-400 group-hover:text-primary-500 transition-colors shrink-0" />
           <div className="flex-1 text-slate-800 font-extrabold text-sm">
             {value ? (
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 flex-wrap">
                 <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.hour.padStart(2, '0')}</span>
                 <span className="text-slate-350 font-medium">:</span>
                 <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.minute}</span>
@@ -194,14 +197,22 @@ export const StudentDashboard = () => {
         {/* Centered Modal Popup */}
         {isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop with premium blur */}
+            {/* Backdrop with premium blur and click safety check (preventing ghost-click race conditions) */}
             <div 
               className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300"
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (Date.now() - openTime > 350) {
+                  setIsOpen(false);
+                }
+              }}
             />
             
             {/* Modal Box */}
-            <div className="relative w-full max-w-[340px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col gap-6 z-10 animate-in fade-in zoom-in-95 duration-200">
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-[320px] sm:max-w-[340px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 p-5 sm:p-6 flex flex-col gap-5 sm:gap-6 z-10 animate-in fade-in zoom-in-95 duration-200"
+            >
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
                 <span className="text-sm font-black uppercase tracking-wider text-slate-400">
@@ -227,15 +238,18 @@ export const StudentDashboard = () => {
                   value={localHour || ''}
                   onChange={handleHourChange}
                   onKeyDown={handleHourKeyDown}
-                  onFocus={() => setFocusedField('hour')}
-                  className={`w-16 h-16 text-center font-black text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  onFocus={(e) => {
+                    setFocusedField('hour');
+                    e.target.select();
+                  }}
+                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-black text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
                     focusedField === 'hour'
-                      ? 'text-primary-600 bg-primary-50 rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
-                      : 'text-slate-700 hover:bg-slate-100/40 rounded-2xl'
+                      ? 'text-primary-600 bg-primary-50 rounded-xl sm:rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
+                      : 'text-slate-700 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl'
                   }`}
                 />
                 
-                <span className="text-2xl font-black text-slate-300 select-none animate-pulse">:</span>
+                <span className="text-xl sm:text-2xl font-black text-slate-300 select-none animate-pulse">:</span>
                 
                 <input
                   ref={minuteInputRef}
@@ -246,11 +260,14 @@ export const StudentDashboard = () => {
                   value={localMinute || ''}
                   onChange={handleMinuteChange}
                   onKeyDown={handleMinuteKeyDown}
-                  onFocus={() => setFocusedField('minute')}
-                  className={`w-16 h-16 text-center font-black text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  onFocus={(e) => {
+                    setFocusedField('minute');
+                    e.target.select();
+                  }}
+                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-black text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
                     focusedField === 'minute'
-                      ? 'text-primary-600 bg-primary-50 rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
-                      : 'text-slate-700 hover:bg-slate-100/40 rounded-2xl'
+                      ? 'text-primary-600 bg-primary-50 rounded-xl sm:rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
+                      : 'text-slate-700 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl'
                   }`}
                 />
                 
@@ -286,7 +303,7 @@ export const StudentDashboard = () => {
                 </div>
 
                 {focusedField === 'hour' ? (
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                     {hours.map((h) => {
                       const hNum = parseInt(h);
                       const isSelected = localHour && parseInt(localHour) === hNum;
@@ -296,7 +313,7 @@ export const StudentDashboard = () => {
                           key={h}
                           type="button"
                           onClick={() => selectHourOption(h)}
-                          className={`h-11 rounded-xl text-xs font-black flex items-center justify-center transition-all ${
+                          className={`h-10 sm:h-11 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center transition-all ${
                             isSelected
                               ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20 scale-105'
                               : 'bg-slate-50 border border-slate-200/40 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
@@ -308,7 +325,7 @@ export const StudentDashboard = () => {
                     })}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                     {minutes.map((m) => {
                       const mNum = parseInt(m);
                       const isSelected = localMinute && parseInt(localMinute) === mNum;
@@ -318,7 +335,7 @@ export const StudentDashboard = () => {
                           key={m}
                           type="button"
                           onClick={() => selectMinuteOption(m)}
-                          className={`h-11 rounded-xl text-xs font-black flex items-center justify-center transition-all ${
+                          className={`h-10 sm:h-11 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center transition-all ${
                             isSelected
                               ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20 scale-105'
                               : 'bg-slate-50 border border-slate-200/40 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
@@ -333,18 +350,18 @@ export const StudentDashboard = () => {
               </div>
 
               {/* Bottom Actions */}
-              <div className="flex gap-3 pt-2 border-t border-slate-100">
+              <div className="flex gap-2.5 sm:gap-3 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="flex-1 py-3 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-xl sm:rounded-2xl text-xs font-black uppercase tracking-wider transition-colors"
                 >
                   Clear
                 </button>
                 <button
                   type="button"
                   onClick={handleOK}
-                  className="flex-1 py-3 bg-primary-600 text-white hover:bg-primary-700 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md shadow-primary-500/10 transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 bg-primary-600 text-white hover:bg-primary-700 rounded-xl sm:rounded-2xl text-xs font-black uppercase tracking-wider shadow-md shadow-primary-500/10 transition-colors"
                 >
                   OK
                 </button>
@@ -797,7 +814,7 @@ export const StudentDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Rounds Completed</label>
-                <input type="number" min="0" required value={formData.rounds_completed} onChange={(e) => setFormData({ ...formData, rounds_completed: parseInt(e.target.value) || 0 })} className="input-field h-14 rounded-2xl" />
+                <input type="number" min="0" required value={formData.rounds_completed} onChange={(e) => setFormData({ ...formData, rounds_completed: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-14 rounded-2xl" />
               </div>
               <div>
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Final Completion (Time)</label>
@@ -848,7 +865,7 @@ export const StudentDashboard = () => {
                   <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Minutes</label>
-                      <input type="number" min="0" value={formData.hearing_minutes} onChange={(e) => setFormData({ ...formData, hearing_minutes: parseInt(e.target.value) || 0 })} className="input-field h-12 rounded-xl" />
+                      <input type="number" min="0" value={formData.hearing_minutes} onChange={(e) => setFormData({ ...formData, hearing_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-12 rounded-xl" />
                     </div>
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -897,7 +914,7 @@ export const StudentDashboard = () => {
                   <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Minutes</label>
-                      <input type="number" min="0" value={formData.reading_minutes} onChange={(e) => setFormData({ ...formData, reading_minutes: parseInt(e.target.value) || 0 })} className="input-field h-12 rounded-xl" />
+                      <input type="number" min="0" value={formData.reading_minutes} onChange={(e) => setFormData({ ...formData, reading_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-12 rounded-xl" />
                     </div>
                     <div>
                       <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -950,7 +967,7 @@ export const StudentDashboard = () => {
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Seva Minutes</label>
                     <div className="relative">
                       <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="number" min="0" value={formData.seva_minutes} onChange={(e) => setFormData({ ...formData, seva_minutes: parseInt(e.target.value) || 0 })} className="input-field pl-12 h-14 rounded-2xl" />
+                      <input type="number" min="0" value={formData.seva_minutes} onChange={(e) => setFormData({ ...formData, seva_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field pl-12 h-14 rounded-2xl" />
                     </div>
                   </div>
                   <div>
@@ -998,7 +1015,7 @@ export const StudentDashboard = () => {
                     <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Exercise Minutes</label>
                     <div className="relative">
                       <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="number" min="0" value={formData.exercise_minutes} onChange={(e) => setFormData({ ...formData, exercise_minutes: parseInt(e.target.value) || 0 })} className="input-field pl-12 h-14 rounded-2xl" />
+                      <input type="number" min="0" value={formData.exercise_minutes} onChange={(e) => setFormData({ ...formData, exercise_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field pl-12 h-14 rounded-2xl" />
                     </div>
                   </div>
                   <div>
