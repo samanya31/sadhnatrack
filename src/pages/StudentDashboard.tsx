@@ -46,9 +46,22 @@ export const StudentDashboard = () => {
   const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
     const parsed = parse24to12(value);
     const update = (field: string, val: string) => {
-      const next = { ...parsed, [field]: val };
-      if (next.hour && next.minute) onChange(to24(next.hour, next.minute, next.period));
-      else if (field === 'period') onChange(to24(parsed.hour, parsed.minute, val));
+      let nextHour = field === 'hour' ? val : parsed.hour;
+      let nextMinute = field === 'minute' ? val : parsed.minute;
+      let nextPeriod = field === 'period' ? val : parsed.period;
+
+      if (!nextHour || !nextMinute) {
+        if (field === 'hour' && val) {
+          nextMinute = '00';
+        } else if (field === 'minute' && val) {
+          nextHour = '05';
+        } else {
+          onChange('');
+          return;
+        }
+      }
+
+      onChange(to24(nextHour, nextMinute, nextPeriod));
     };
     return (
       <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 transition-all shadow-sm">
