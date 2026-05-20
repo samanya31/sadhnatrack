@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { StudentLayout } from '../components/StudentLayout';
 import { supabase } from '../lib/supabase';
 import {
@@ -131,20 +132,7 @@ export const StudentDashboard = () => {
       }
     };
 
-    const selectHourOption = (h: string) => {
-      const paddedHour = h.padStart(2, '0');
-      setLocalHour(paddedHour);
-      setTimeout(() => {
-        minuteInputRef.current?.focus();
-        setFocusedField('minute');
-      }, 50);
-    };
 
-    const selectMinuteOption = (m: string) => {
-      setLocalMinute(m);
-      // Keep focused on minutes input
-      minuteInputRef.current?.focus();
-    };
 
     const handleOK = () => {
       if (!localHour && !localMinute) {
@@ -164,8 +152,7 @@ export const StudentDashboard = () => {
       setIsOpen(false);
     };
 
-    const hours = Array.from({ length: 12 }, (_, i) => String(i + 1));
-    const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+
 
     return (
       <div className="relative w-full">
@@ -195,7 +182,7 @@ export const StudentDashboard = () => {
         </button>
 
         {/* Centered Modal Popup */}
-        {isOpen && (
+        {isOpen && createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop with premium blur and click safety check (preventing ghost-click race conditions) */}
             <div 
@@ -215,7 +202,7 @@ export const StudentDashboard = () => {
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                <span className="text-sm font-black uppercase tracking-wider text-slate-400">
+                <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
                   Set Time
                 </span>
                 <button
@@ -242,14 +229,14 @@ export const StudentDashboard = () => {
                     setFocusedField('hour');
                     e.target.select();
                   }}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-black text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
                     focusedField === 'hour'
-                      ? 'text-primary-600 bg-primary-50 rounded-xl sm:rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
-                      : 'text-slate-700 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl'
+                      ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
+                      : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
                   }`}
                 />
                 
-                <span className="text-xl sm:text-2xl font-black text-slate-300 select-none animate-pulse">:</span>
+                <span className="text-xl sm:text-2xl font-medium text-slate-300 select-none">:</span>
                 
                 <input
                   ref={minuteInputRef}
@@ -264,10 +251,10 @@ export const StudentDashboard = () => {
                     setFocusedField('minute');
                     e.target.select();
                   }}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-black text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
                     focusedField === 'minute'
-                      ? 'text-primary-600 bg-primary-50 rounded-xl sm:rounded-2xl ring-2 ring-primary-500/25 shadow-sm scale-105'
-                      : 'text-slate-700 hover:bg-slate-100/40 rounded-xl sm:rounded-2xl'
+                      ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
+                      : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
                   }`}
                 />
                 
@@ -276,77 +263,22 @@ export const StudentDashboard = () => {
                   <button
                     type="button"
                     onClick={() => setLocalPeriod('AM')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                       localPeriod === 'AM'
-                        ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40 scale-105'
+                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
                         : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >AM</button>
                   <button
                     type="button"
                     onClick={() => setLocalPeriod('PM')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-150 ${
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
                       localPeriod === 'PM'
-                        ? 'bg-white text-slate-800 shadow-sm font-extrabold border border-slate-200/40 scale-105'
+                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
                         : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >PM</button>
                 </div>
-              </div>
-
-              {/* Grid Content Selector */}
-              <div>
-                <div className="text-center mb-3">
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-400">
-                    Select {focusedField === 'hour' ? 'Hour' : 'Minute'}
-                  </span>
-                </div>
-
-                {focusedField === 'hour' ? (
-                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                    {hours.map((h) => {
-                      const hNum = parseInt(h);
-                      const isSelected = localHour && parseInt(localHour) === hNum;
-
-                      return (
-                        <button
-                          key={h}
-                          type="button"
-                          onClick={() => selectHourOption(h)}
-                          className={`h-10 sm:h-11 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20 scale-105'
-                              : 'bg-slate-50 border border-slate-200/40 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
-                          }`}
-                        >
-                          {h.padStart(2, '0')}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-                    {minutes.map((m) => {
-                      const mNum = parseInt(m);
-                      const isSelected = localMinute && parseInt(localMinute) === mNum;
-
-                      return (
-                        <button
-                          key={m}
-                          type="button"
-                          onClick={() => selectMinuteOption(m)}
-                          className={`h-10 sm:h-11 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-black flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20 scale-105'
-                              : 'bg-slate-50 border border-slate-200/40 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               {/* Bottom Actions */}
@@ -354,20 +286,21 @@ export const StudentDashboard = () => {
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="flex-1 py-2.5 sm:py-3 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-xl sm:rounded-2xl text-xs font-black uppercase tracking-wider transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider transition-colors border border-red-100/60 shadow-sm"
                 >
                   Clear
                 </button>
                 <button
                   type="button"
                   onClick={handleOK}
-                  className="flex-1 py-2.5 sm:py-3 bg-primary-600 text-white hover:bg-primary-700 rounded-xl sm:rounded-2xl text-xs font-black uppercase tracking-wider shadow-md shadow-primary-500/10 transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 bg-slate-900 text-white hover:bg-slate-950 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-slate-900/10 transition-colors"
                 >
                   OK
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
