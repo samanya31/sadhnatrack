@@ -18,9 +18,7 @@ import {
   Bookmark,
   MessageSquare,
   BarChart3,
-  Dumbbell,
-  ChevronDown,
-  X
+  Dumbbell
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
