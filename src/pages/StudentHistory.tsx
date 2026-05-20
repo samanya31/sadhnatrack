@@ -98,10 +98,14 @@ export const StudentHistory = () => {
   };
 
   // Stats for the top bar
-  const totalRounds = monthEntries.reduce((sum, e) => sum + (e.rounds_completed || 0), 0);
-  const avgRounds = monthEntries.length > 0 ? (totalRounds / monthEntries.length).toFixed(1) : '0.0';
+
+  const extraRounds = monthEntries.reduce((sum, e) => sum + Math.max((e.rounds_completed || 0) - 16, 0), 0);
   const totalHearing = monthEntries.reduce((sum, e) => sum + (e.hearing_minutes || 0), 0);
   const totalReading = monthEntries.reduce((sum, e) => sum + (e.reading_minutes || 0), 0);
+  const totalHearingHours = Math.floor(totalHearing / 60);
+  const totalHearingMins = totalHearing % 60;
+  const totalReadingHours = Math.floor(totalReading / 60);
+  const totalReadingMins = totalReading % 60;
 
   let daysCount = daysInMonth.length;
   if (filterType === 'custom') {
@@ -210,8 +214,8 @@ export const StudentHistory = () => {
                 <Target size={28} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Avg Rounds</p>
-                <p className="text-2xl font-black text-slate-900">{avgRounds}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Extra Rounds</p>
+                <p className="text-2xl font-black text-slate-900">{extraRounds}</p>
               </div>
             </div>
           </div>
@@ -223,7 +227,7 @@ export const StudentHistory = () => {
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Hearing</p>
-                <p className="text-2xl font-black text-slate-900">{totalHearing}m</p>
+                <p className="text-2xl font-black text-slate-900">{totalHearingHours}h {totalHearingMins}m</p>
               </div>
             </div>
           </div>
@@ -235,7 +239,7 @@ export const StudentHistory = () => {
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Reading</p>
-                <p className="text-2xl font-black text-slate-900">{totalReading}m</p>
+                <p className="text-2xl font-black text-slate-900">{totalReadingHours}h {totalReadingMins}m</p>
               </div>
             </div>
           </div>
