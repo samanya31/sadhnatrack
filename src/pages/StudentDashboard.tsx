@@ -293,7 +293,7 @@ export const StudentDashboard = () => {
                 <button
                   type="button"
                   onClick={handleOK}
-                  className="flex-1 py-2.5 sm:py-3 bg-slate-900 text-white hover:bg-slate-950 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-slate-900/10 transition-colors"
+                  className="flex-1 py-2.5 sm:py-3 bg-emerald-800 text-white hover:bg-emerald-900 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-800/15 transition-colors"
                 >
                   OK
                 </button>
