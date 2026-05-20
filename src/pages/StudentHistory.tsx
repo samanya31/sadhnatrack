@@ -15,7 +15,6 @@ import {
   TrendingUp,
   ClipboardList,
   Target,
-  Award,
   Check
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
@@ -31,6 +30,9 @@ export const StudentHistory = () => {
   const [monthEntries, setMonthEntries] = useState<any[]>([]);
   const [, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [filterType, setFilterType] = useState<'month' | 'custom'>('month');
+  const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const daysInMonth = eachDayOfInterval({
     start: startOfMonth(currentMonth),
@@ -39,7 +41,7 @@ export const StudentHistory = () => {
 
   useEffect(() => {
     fetchMonthData();
-  }, [currentMonth]);
+  }, [currentMonth, filterType, startDate, endDate]);
 
   const fetchMonthData = async () => {
     try {
@@ -47,18 +49,37 @@ export const StudentHistory = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data } = await supabase
+      let query = supabase
         .from('sadhana_entries')
         .select('*')
-        .eq('user_id', user.id)
-        .gte('date', format(startOfMonth(currentMonth), 'yyyy-MM-dd'))
-        .lte('date', format(endOfMonth(currentMonth), 'yyyy-MM-dd'));
+        .eq('user_id', user.id);
 
+      if (filterType === 'month') {
+        query = query
+          .gte('date', format(startOfMonth(currentMonth), 'yyyy-MM-dd'))
+          .lte('date', format(endOfMonth(currentMonth), 'yyyy-MM-dd'));
+      } else {
+        query = query
+          .gte('date', startDate)
+          .lte('date', endDate);
+      }
+
+      const { data } = await query;
       setMonthEntries(data || []);
     } catch (error) {
-      console.error('Error fetching month data:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    try {
+      const d = parseISO(val);
+      setCurrentMonth(d);
+    } catch (e) {
+      console.error('Error parsing date:', e);
     }
   };
 
@@ -78,14 +99,30 @@ export const StudentHistory = () => {
 
   // Stats for the top bar
   const totalRounds = monthEntries.reduce((sum, e) => sum + (e.rounds_completed || 0), 0);
-  const avgRounds = monthEntries.length > 0 ? (totalRounds / monthEntries.length).toFixed(1) : 0;
+  const avgRounds = monthEntries.length > 0 ? (totalRounds / monthEntries.length).toFixed(1) : '0.0';
   const totalHearing = monthEntries.reduce((sum, e) => sum + (e.hearing_minutes || 0), 0);
+  const totalReading = monthEntries.reduce((sum, e) => sum + (e.reading_minutes || 0), 0);
+
+  let daysCount = daysInMonth.length;
+  if (filterType === 'custom') {
+    try {
+      const start = parseISO(startDate);
+      const end = parseISO(endDate);
+      if (start <= end) {
+        daysCount = eachDayOfInterval({ start, end }).length;
+      }
+    } catch (e) {
+      console.error('Error calculating custom days count:', e);
+    }
+  }
+
+  const progressPercent = daysCount > 0 ? Math.min(Math.round((monthEntries.length / daysCount) * 100), 100) : 0;
 
   return (
     <StudentLayout>
       <div className="max-w-[1600px] mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary-50 text-primary-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-primary-100">
               <TrendingUp size={12} />
@@ -95,24 +132,73 @@ export const StudentHistory = () => {
             <p className="text-slate-500 font-medium max-w-lg">Review your spiritual data with the same depth as the admin console.</p>
           </div>
 
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 bg-white p-2 rounded-[2rem] shadow-soft border border-slate-100">
-              <button 
-                onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
-                className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 active:scale-95"
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {/* Filter Mode Switcher */}
+            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 self-start sm:self-auto">
+              <button
+                onClick={() => setFilterType('month')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 ${
+                  filterType === 'month' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
               >
-                <ChevronLeft size={20} />
+                Month View
               </button>
-              <div className="px-6 py-2 text-xs font-black text-slate-900 uppercase tracking-[0.2em]">
-                {format(currentMonth, 'MMMM yyyy')}
-              </div>
-              <button 
-                onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
-                className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 active:scale-95"
+              <button
+                onClick={() => setFilterType('custom')}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all active:scale-95 ${
+                  filterType === 'custom' 
+                    ? 'bg-white text-slate-900 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-700'
+                }`}
               >
-                <ChevronRight size={20} />
+                Custom Range
               </button>
             </div>
+
+            {/* Month View Controls */}
+            {filterType === 'month' ? (
+              <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-[2rem] shadow-soft border border-slate-100 w-full sm:w-auto">
+                <button 
+                  onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1))}
+                  className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 active:scale-95"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <div className="px-6 py-2 text-xs font-black text-slate-900 uppercase tracking-[0.2em] whitespace-nowrap">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </div>
+                <button 
+                  onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1))}
+                  className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900 active:scale-95"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            ) : (
+              /* Custom Range View Controls */
+              <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-[2rem] shadow-soft border border-slate-100 w-full sm:w-auto">
+                <div className="flex items-center gap-3 px-4 py-2 border-b sm:border-b-0 sm:border-r border-slate-100 w-full sm:w-auto">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">From</span>
+                  <input 
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className="text-xs font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer w-full sm:w-auto p-0"
+                  />
+                </div>
+                <div className="flex items-center gap-3 px-4 py-2 w-full sm:w-auto">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0">To</span>
+                  <input 
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="text-xs font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer w-full sm:w-auto p-0"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -145,11 +231,11 @@ export const StudentHistory = () => {
           <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-slate-100 shadow-soft hover:shadow-md transition-all group">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
-                <Award size={28} />
+                <BookOpen size={28} />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Logs</p>
-                <p className="text-2xl font-black text-slate-900">{monthEntries.length}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Reading</p>
+                <p className="text-2xl font-black text-slate-900">{totalReading}m</p>
               </div>
             </div>
           </div>
@@ -161,7 +247,7 @@ export const StudentHistory = () => {
               </div>
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Progress</p>
-                <p className="text-2xl font-black text-slate-900">{Math.round((monthEntries.length / daysInMonth.length) * 100)}%</p>
+                <p className="text-2xl font-black text-slate-900">{progressPercent}%</p>
               </div>
             </div>
           </div>
