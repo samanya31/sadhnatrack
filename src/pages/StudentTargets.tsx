@@ -23,7 +23,7 @@ import {
   Sparkles,
   TrendingUp
 } from 'lucide-react';
-import { differenceInDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { TargetWelcomeModal } from '../components/TargetWelcomeModal';
 import { TargetCreateModal } from '../components/TargetCreateModal';
 
@@ -339,126 +339,258 @@ export const StudentTargets = () => {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredTargets.map((target) => {
-                const isMilestone = target.metric === 'custom_milestone';
-                const total = target.target_value;
-                const actual = isMilestone 
-                  ? (target.is_completed ? 1 : target.current_progress) 
-                  : target.actualProgress;
-                
-                const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
-                const theme = getMetricTheme(target.metric);
-                
-                const today = new Date();
-                const targetEnd = new Date(target.end_date.replace(/-/g, '/'));
-                const daysLeft = Math.max(0, differenceInDays(targetEnd, today) + 1);
+            <>
+              {/* Desktop view: Table */}
+              <div className="hidden md:block bg-white rounded-[2rem] border border-slate-100 shadow-soft overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/75 border-b border-slate-100">
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-450 uppercase tracking-widest">Goal Title</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-450 uppercase tracking-widest">Activity & Period</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-450 uppercase tracking-widest">Timeline</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-450 uppercase tracking-widest w-[280px]">Progress</th>
+                        <th className="px-6 py-4 text-[10px] font-black text-slate-450 uppercase tracking-widest text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {filteredTargets.map((target) => {
+                        const isMilestone = target.metric === 'custom_milestone';
+                        const total = target.target_value;
+                        const actual = isMilestone 
+                          ? (target.is_completed ? 1 : target.current_progress) 
+                          : target.actualProgress;
+                        
+                        const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
+                        const theme = getMetricTheme(target.metric);
+                        
+                        const today = new Date();
+                        const targetEnd = new Date(target.end_date.replace(/-/g, '/'));
+                        const daysLeft = Math.max(0, differenceInDays(targetEnd, today) + 1);
 
-                return (
-                  <div 
-                    key={target.id} 
-                    className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col justify-between shadow-soft hover:shadow-md transition-all relative group"
-                  >
-                    <div>
-                      {/* Card Category & Period */}
-                      <div className="flex items-center justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${theme.bg}`}>
-                            {theme.icon}
-                            {getMetricLabel(target.metric)}
-                          </span>
-                          <span className="bg-slate-100 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-200/30">
-                            {target.period_type}
-                          </span>
-                        </div>
+                        return (
+                          <tr key={target.id} className="hover:bg-slate-50/40 transition-colors group">
+                            {/* Title */}
+                            <td className="px-6 py-5">
+                              <h4 className="font-extrabold text-sm text-slate-800 leading-tight">
+                                {target.title}
+                              </h4>
+                              {target.description && (
+                                <p className="text-xs font-semibold text-slate-400 italic mt-1 max-w-[320px] truncate">
+                                  "{target.description}"
+                                </p>
+                              )}
+                            </td>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTarget(target.id)}
-                          className="p-2 rounded-xl text-slate-350 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                          title="Delete Target"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                            {/* Activity & Period */}
+                            <td className="px-6 py-5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${theme.bg}`}>
+                                  {theme.icon}
+                                  {getMetricLabel(target.metric)}
+                                </span>
+                                <span className="bg-slate-100 px-2.5 py-0.5 rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-200/30">
+                                  {target.period_type}
+                                </span>
+                              </div>
+                            </td>
 
-                      {/* Title & Description */}
-                      <h4 className="font-extrabold text-base text-slate-800 tracking-tight leading-snug mb-1">
-                        {target.title}
-                      </h4>
-                      {target.description && (
-                        <p className="text-xs font-semibold text-slate-400 italic mb-4 leading-relaxed">
-                          "{target.description}"
-                        </p>
-                      )}
-                    </div>
+                            {/* Timeline */}
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-2 text-slate-550 text-xs font-semibold">
+                                <Calendar size={12} className="text-slate-350" />
+                                <span>
+                                  {daysLeft > 0 ? `${daysLeft} days left` : 'Ends today'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 block mt-1">
+                                {format(new Date(target.start_date.replace(/-/g, '/')), 'MMM d')} - {format(new Date(target.end_date.replace(/-/g, '/')), 'MMM d, yyyy')}
+                              </span>
+                            </td>
 
-                    {/* Progress Detail */}
-                    <div className="space-y-3 mt-4 pt-4 border-t border-slate-50">
-                      {isMilestone ? (
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={12} className="text-slate-350" />
-                            <span className="text-[10px] font-bold text-slate-400">
-                              {daysLeft > 0 ? `${daysLeft} days remaining` : 'Completes today'}
+                            {/* Progress */}
+                            <td className="px-6 py-5">
+                              {isMilestone ? (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleTargetComplete(target.id, !target.is_completed)}
+                                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                                      target.is_completed
+                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
+                                        : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                                    }`}
+                                  >
+                                    {target.is_completed ? 'Completed' : 'Mark Complete'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5 max-w-[240px]">
+                                  <div className="flex justify-between text-[11px] font-bold text-slate-555">
+                                    <span>
+                                      {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
+                                        ? formatMinutes(actual)
+                                        : `${actual} R`
+                                      } / {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
+                                        ? formatMinutes(total)
+                                        : `${total} R`
+                                      }
+                                    </span>
+                                    <span className={`font-black ${percent >= 100 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                                      {percent}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/30">
+                                    <div
+                                      className={`h-full ${theme.barColor} transition-all duration-700 ease-out`}
+                                      style={{ width: `${percent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-6 py-5 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTarget(target.id)}
+                                className="p-2 rounded-xl text-slate-350 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 inline-flex items-center justify-center"
+                                title="Delete Target"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile view: Cards */}
+              <div className="grid grid-cols-1 gap-6 md:hidden">
+                {filteredTargets.map((target) => {
+                  const isMilestone = target.metric === 'custom_milestone';
+                  const total = target.target_value;
+                  const actual = isMilestone 
+                    ? (target.is_completed ? 1 : target.current_progress) 
+                    : target.actualProgress;
+                  
+                  const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
+                  const theme = getMetricTheme(target.metric);
+                  
+                  const today = new Date();
+                  const targetEnd = new Date(target.end_date.replace(/-/g, '/'));
+                  const daysLeft = Math.max(0, differenceInDays(targetEnd, today) + 1);
+
+                  return (
+                    <div 
+                      key={target.id} 
+                      className="bg-white p-5 rounded-[2rem] border border-slate-100 flex flex-col justify-between shadow-soft hover:shadow-md transition-all relative group"
+                    >
+                      <div>
+                        {/* Card Category & Period */}
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${theme.bg}`}>
+                              {theme.icon}
+                              {getMetricLabel(target.metric)}
+                            </span>
+                            <span className="bg-slate-100 px-2.5 py-1 rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-wider border border-slate-200/30">
+                              {target.period_type}
                             </span>
                           </div>
+
                           <button
                             type="button"
-                            onClick={() => handleToggleTargetComplete(target.id, !target.is_completed)}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                              target.is_completed
-                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
-                                : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
-                            }`}
+                            onClick={() => handleDeleteTarget(target.id)}
+                            className="p-2 rounded-xl text-slate-350 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100"
+                            title="Delete Target"
                           >
-                            {target.is_completed ? 'Completed' : 'Mark Complete'}
+                            <Trash2 size={14} />
                           </button>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-xs font-bold text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                              <span className="text-slate-900 font-extrabold">
-                                {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
-                                  ? formatMinutes(actual)
-                                  : `${actual} R`
+
+                        {/* Title & Description */}
+                        <h4 className="font-extrabold text-base text-slate-800 tracking-tight leading-snug mb-1">
+                          {target.title}
+                        </h4>
+                        {target.description && (
+                          <p className="text-xs font-semibold text-slate-400 italic mb-4 leading-relaxed">
+                            "{target.description}"
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Progress Detail */}
+                      <div className="space-y-3 mt-4 pt-4 border-t border-slate-50">
+                        {isMilestone ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <Calendar size={12} className="text-slate-350" />
+                              <span className="text-[10px] font-bold text-slate-400">
+                                {daysLeft > 0 ? `${daysLeft} days remaining` : 'Completes today'}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTargetComplete(target.id, !target.is_completed)}
+                              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                                target.is_completed
+                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm'
+                                  : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              {target.is_completed ? 'Completed' : 'Mark Complete'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold text-slate-500">
+                              <span className="flex items-center gap-1.5">
+                                <span className="text-slate-900 font-extrabold">
+                                  {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
+                                    ? formatMinutes(actual)
+                                    : `${actual} R`
+                                  }
+                                </span>
+                                <span>done</span>
+                              </span>
+                              <span className="text-slate-400">
+                                Target: {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
+                                  ? formatMinutes(total)
+                                  : `${total} R`
                                 }
                               </span>
-                              <span>done</span>
-                            </span>
-                            <span className="text-slate-400">
-                              Target: {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
-                                ? formatMinutes(total)
-                                : `${total} R`
-                              }
-                            </span>
+                            </div>
+                            
+                            {/* Bar */}
+                            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/30">
+                              <div
+                                className={`h-full ${theme.barColor} transition-all duration-700 ease-out`}
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-[10px] font-bold">
+                              <span className="text-slate-450 flex items-center gap-1">
+                                <Calendar size={10} />
+                                {daysLeft > 0 ? `${daysLeft}d left` : 'Ends today'}
+                              </span>
+                              <span className={`font-black uppercase tracking-wider ${percent >= 100 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                {percent}% Complete
+                              </span>
+                            </div>
                           </div>
-                          
-                          {/* Bar */}
-                          <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200/30">
-                            <div
-                              className={`h-full ${theme.barColor} transition-all duration-700 ease-out`}
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-[10px] font-bold">
-                            <span className="text-slate-450 flex items-center gap-1">
-                              <Calendar size={10} />
-                              {daysLeft > 0 ? `${daysLeft}d left` : 'Ends today'}
-                            </span>
-                            <span className={`font-black uppercase tracking-wider ${percent >= 100 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                              {percent}% Complete
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 
