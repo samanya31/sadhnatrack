@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
-import { supabase } from '../lib/supabase';
+import { supabase, calculateTargetActualProgress } from '../lib/supabase';
 import {
   PenLine,
   Target,
@@ -32,11 +32,15 @@ const metricLabels: Record<string, { label: string; unit: string; icon: any; col
   hearing_minutes: { label: 'Audio Hearing', unit: 'min/day', icon: Headphones, color: 'from-emerald-50 via-teal-50 to-cyan-50', lightBg: 'bg-emerald-100', textColor: 'text-emerald-700' },
   mangal_arti: { label: 'Mangal Arti', unit: 'days/week', icon: Star, color: 'from-rose-50 via-pink-50 to-fuchsia-50', lightBg: 'bg-rose-100', textColor: 'text-rose-700' },
   morning_japa: { label: 'Morning Japa', unit: 'days/week', icon: Flame, color: 'from-violet-50 via-purple-50 to-indigo-50', lightBg: 'bg-violet-100', textColor: 'text-violet-700' },
+  seva_minutes: { label: 'Seva/Service', unit: 'min', icon: Star, color: 'from-pink-50 via-rose-50 to-red-50', lightBg: 'bg-pink-100', textColor: 'text-pink-700' },
+  exercise_minutes: { label: 'Exercise', unit: 'min', icon: Star, color: 'from-teal-50 via-emerald-50 to-green-50', lightBg: 'bg-teal-100', textColor: 'text-teal-700' },
+  custom_milestone: { label: 'Custom Milestone', unit: 'units', icon: Star, color: 'from-gray-50 via-slate-50 to-zinc-50', lightBg: 'bg-slate-100', textColor: 'text-slate-700' },
 };
 
 const fallbackGoals = [
   {
     id: 'default-1',
+    title: 'Daily Japa Rounds',
     metric: 'rounds_completed',
     target_value: 16,
     start_date: format(new Date(), 'yyyy-MM-dd'),
@@ -45,6 +49,7 @@ const fallbackGoals = [
   },
   {
     id: 'default-2',
+    title: 'Daily Book Reading',
     metric: 'reading_minutes',
     target_value: 30,
     start_date: format(new Date(), 'yyyy-MM-dd'),
@@ -111,7 +116,28 @@ export const StudentDashboard = () => {
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      setUserTargets(targets || []);
+      
+      const userTargetsList = targets || [];
+      const targetsWithProgress = await Promise.all(
+        userTargetsList.map(async (target: any) => {
+          let actualProgress = 0;
+          if (target.metric !== 'custom_milestone') {
+            actualProgress = await calculateTargetActualProgress(
+              userId,
+              target.metric,
+              target.start_date,
+              target.end_date
+            );
+          } else {
+            actualProgress = target.is_completed ? target.target_value : target.current_progress;
+          }
+          return {
+            ...target,
+            actualProgress
+          };
+        })
+      );
+      setUserTargets(targetsWithProgress);
 
       const { data: entries } = await supabase
         .from('sadhana_entries')
@@ -226,7 +252,7 @@ export const StudentDashboard = () => {
       <div className="space-y-4 w-full animate-in fade-in duration-500">
 
         {/* 1. HERO SECTION */}
-        <div className="relative overflow-hidden rounded-none sm:rounded-2xl shadow-xl min-h-[160px] md:min-h-[250px] flex items-center bg-slate-900">
+        <div className="relative overflow-hidden rounded-2xl shadow-xl min-h-[160px] md:min-h-[250px] flex items-center bg-slate-900">
           <picture className="absolute inset-0 z-0 w-full h-full">
             <source media="(max-width: 767px)" srcSet={studashMobImg} />
             <img 
@@ -273,92 +299,105 @@ export const StudentDashboard = () => {
         </div>
 
         {/* 2. GOALS CAROUSEL — light gradients, goals from Supabase */}
-        <div className="px-2 sm:px-0">
-          <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-100">
-            <div className="relative rounded-xl overflow-hidden w-full h-[170px] sm:h-[145px]">
-              <div
-                className="flex transition-transform duration-500 h-full w-full"
-                style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
-              >
-                {goalsForCarousel.map((goal: any, idx: number) => {
-                  const meta = metricLabels[goal.metric] || {
-                    label: goal.metric?.replace(/_/g, ' ') || 'Goal',
-                    unit: '',
-                    icon: Star,
-                    color: 'from-slate-50 via-gray-50 to-zinc-50',
-                    lightBg: 'bg-slate-100',
-                    textColor: 'text-slate-700'
-                  };
-                  const IconComp = meta.icon;
-                  const isActive = goal.start_date <= todayStr && goal.end_date >= todayStr;
-                  const isFallback = goal.isFallback;
+        <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-100">
+          <div className="relative rounded-xl overflow-hidden w-full h-[170px] sm:h-[145px]">
+            <div
+              className="flex transition-transform duration-500 h-full w-full"
+              style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+            >
+              {goalsForCarousel.map((goal: any, idx: number) => {
+                const meta = metricLabels[goal.metric] || {
+                  label: goal.metric?.replace(/_/g, ' ') || 'Goal',
+                  unit: '',
+                  icon: Star,
+                  color: 'from-slate-50 via-gray-50 to-zinc-50',
+                  lightBg: 'bg-slate-100',
+                  textColor: 'text-slate-700'
+                };
+                const IconComp = meta.icon;
+                const isActive = goal.start_date <= todayStr && goal.end_date >= todayStr;
+                const isFallback = goal.isFallback;
 
-                  return (
-                    <div
-                      key={goal.id || idx}
-                      className={`min-w-full h-full p-5 flex flex-col justify-between relative bg-gradient-to-br ${meta.color}`}
-                    >
-                      {/* Subtle decorative circle */}
-                      <div className={`absolute top-0 right-0 w-40 h-40 ${meta.lightBg} opacity-30 rounded-full -mr-12 -mt-12 blur-2xl pointer-events-none`} />
+                // Dynamically resolve actual progress
+                let actual = 0;
+                if (isFallback) {
+                  if (goal.metric === 'rounds_completed') {
+                    actual = todayRounds;
+                  } else if (goal.metric === 'reading_minutes') {
+                    actual = todayEntry?.reading_minutes || 0;
+                  }
+                } else {
+                  actual = goal.actualProgress || 0;
+                }
 
-                      <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-8 h-8 rounded-xl ${meta.lightBg} flex items-center justify-center`}>
-                              <IconComp className={`w-4 h-4 ${meta.textColor}`} />
-                            </div>
-                            <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${meta.lightBg} ${meta.textColor} border-current/20`}>
-                              {isFallback ? 'Default Goal' : isActive ? 'Active Goal' : 'Goal'}
-                            </span>
+                const total = goal.target_value;
+                const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
+
+                return (
+                  <div
+                    key={goal.id || idx}
+                    className={`min-w-full h-full p-5 flex flex-col justify-between relative bg-gradient-to-br ${meta.color}`}
+                  >
+                    {/* Subtle decorative circle */}
+                    <div className={`absolute top-0 right-0 w-40 h-40 ${meta.lightBg} opacity-30 rounded-full -mr-12 -mt-12 blur-2xl pointer-events-none`} />
+
+                    <div className="relative z-10">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-xl ${meta.lightBg} flex items-center justify-center`}>
+                            <IconComp className={`w-4 h-4 ${meta.textColor}`} />
                           </div>
-                          {!isFallback && (
-                            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                              {goal.start_date} → {goal.end_date}
-                            </span>
-                          )}
+                          <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${meta.lightBg} ${meta.textColor} border-current/20`}>
+                            {isFallback ? 'Default Goal' : isActive ? 'Active Goal' : 'Goal'}
+                          </span>
                         </div>
-
-                        <h3 className="text-base sm:text-lg font-black tracking-tight leading-snug mb-0.5 text-slate-800">
-                          {meta.label}
-                        </h3>
-                        <p className="text-slate-500 text-xs font-semibold leading-relaxed">
-                          {isFallback
-                            ? `Target: ${goal.target_value} ${meta.unit}. Set your own goals from Goal Setting!`
-                            : `Target: ${goal.target_value} ${meta.unit}${isActive ? ' · Currently active' : ''}`
-                          }
-                        </p>
+                        {!isFallback && (
+                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {goal.start_date} → {goal.end_date}
+                          </span>
+                        )}
                       </div>
 
-                      <div className="relative z-10 flex items-center justify-between mt-2 border-t border-slate-200/50 pt-2">
-                        <button
-                          onClick={() => navigate('/targets')}
-                          className={`${meta.lightBg} ${meta.textColor} px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider hover:opacity-80 transition-all flex items-center gap-1.5 cursor-pointer`}
-                        >
-                          {isFallback ? 'Set My Goals' : 'Manage Goals'}
-                          <ArrowRight size={11} />
-                        </button>
-                        <div className="flex gap-1">
-                          {goalsForCarousel.map((_: any, i: number) => (
-                            <button
-                              key={i}
-                              onClick={() => setCurrentBannerIndex(i)}
-                              className={`h-1.5 rounded-full transition-all duration-300 ${
-                                i === currentBannerIndex ? `w-4 ${meta.lightBg}` : 'w-1.5 bg-slate-200'
-                              }`}
-                            />
-                          ))}
-                        </div>
+                      <h3 className="text-base sm:text-lg font-black tracking-tight leading-snug mb-0.5 text-slate-800">
+                        {goal.title || meta.label}
+                      </h3>
+                      <p className="text-slate-500 text-xs font-semibold leading-relaxed">
+                        {isFallback
+                          ? `Target: ${total} ${meta.unit} · Progress: ${actual} (${percent}%)`
+                          : `Target: ${total} ${meta.unit} · Progress: ${actual} (${percent}%) · ${isActive ? 'Currently active' : 'Not active'}`
+                        }
+                      </p>
+                    </div>
+
+                    <div className="relative z-10 flex items-center justify-between mt-2 border-t border-slate-200/50 pt-2">
+                      <button
+                        onClick={() => navigate('/targets')}
+                        className={`${meta.lightBg} ${meta.textColor} px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider hover:opacity-80 transition-all flex items-center gap-1.5 cursor-pointer`}
+                      >
+                        {isFallback ? 'Set My Goals' : 'Manage Goals'}
+                        <ArrowRight size={11} />
+                      </button>
+                      <div className="flex gap-1">
+                        {goalsForCarousel.map((_: any, i: number) => (
+                          <button
+                            key={i}
+                            onClick={() => setCurrentBannerIndex(i)}
+                            className={`h-1.5 rounded-full transition-all duration-300 ${
+                              i === currentBannerIndex ? `w-4 ${meta.lightBg}` : 'w-1.5 bg-slate-200'
+                            }`}
+                          />
+                        ))}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* 3. FOUR QUICK ACTIONS GRID */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-2 sm:px-0">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {quickActions.map((action) => (
             <button
               key={action.title}
@@ -385,67 +424,65 @@ export const StudentDashboard = () => {
         </div>
 
         {/* 4. TODAY'S SADHANA CHECKLIST — full width, no notice board or streak widget */}
-        <div className="px-2 sm:px-0">
-          <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-lg text-slate-800 tracking-tight">Today's Sadhana Checklist</h3>
-              </div>
-              <button
-                onClick={() => navigate('/log')}
-                className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-blue-100/50 hover:bg-blue-100/70"
-              >
-                Log Full Form
-              </button>
+        <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              <h3 className="font-bold text-lg text-slate-800 tracking-tight">Today's Sadhana Checklist</h3>
             </div>
+            <button
+              onClick={() => navigate('/log')}
+              className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-blue-100/50 hover:bg-blue-100/70"
+            >
+              Log Full Form
+            </button>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { key: 'mangal_arti', label: 'Mangal Arti Program', desc: 'Attended Mangal Arti prayers at the BACE/Temple', icon: Clock, accentColor: 'amber' },
-                { key: 'tulasi_arti', label: 'Tulasi Arti Program', desc: 'Offered prayers and circumambulation to Tulasi Maharani', icon: Compass, accentColor: 'emerald' },
-                { key: 'morning_japa', label: 'Morning Japa Chanting', desc: 'Chanted Japa rounds attentively in the morning hours', icon: Flame, accentColor: 'red' },
-                { key: 'morning_hearing', label: 'Morning Lecture / Hearing', desc: 'Listened to morning Srimad Bhagavatam lecture/scriptures', icon: Radio, accentColor: 'blue' }
-              ].map((item) => {
-                const isChecked = todayEntry ? todayEntry[item.key] : false;
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.key}
-                    onClick={() => handleToggleMorningItem(item.key as any)}
-                    className={`border rounded-xl px-5 py-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer select-none ${
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {[
+              { key: 'mangal_arti', label: 'Mangal Arti Program', desc: 'Attended Mangal Arti prayers at the BACE/Temple', icon: Clock, accentColor: 'amber' },
+              { key: 'tulasi_arti', label: 'Tulasi Arti Program', desc: 'Offered prayers and circumambulation to Tulasi Maharani', icon: Compass, accentColor: 'emerald' },
+              { key: 'morning_japa', label: 'Morning Japa Chanting', desc: 'Chanted Japa rounds attentively in the morning hours', icon: Flame, accentColor: 'red' },
+              { key: 'morning_hearing', label: 'Morning Lecture / Hearing', desc: 'Listened to morning Srimad Bhagavatam lecture/scriptures', icon: Radio, accentColor: 'blue' }
+            ].map((item) => {
+              const isChecked = todayEntry ? todayEntry[item.key] : false;
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.key}
+                  onClick={() => handleToggleMorningItem(item.key as any)}
+                  className={`border rounded-xl px-5 py-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer select-none ${
+                    isChecked
+                      ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800'
+                      : 'bg-white border-slate-150 text-slate-500 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isChecked ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'
+                    }`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-base">{item.label}</h3>
+                      <p className="text-xs text-gray-400 font-medium mt-0.5">{item.desc}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-colors flex-shrink-0 flex items-center gap-1.5 ${
                       isChecked
-                        ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800'
-                        : 'bg-white border-slate-150 text-slate-500 hover:border-slate-300'
+                        ? 'bg-emerald-500 text-white cursor-pointer'
+                        : 'bg-slate-100 text-slate-500 cursor-pointer border border-slate-200 hover:bg-slate-200/60'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        isChecked ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'
-                      }`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 text-base">{item.label}</h3>
-                        <p className="text-xs text-gray-400 font-medium mt-0.5">{item.desc}</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-colors flex-shrink-0 flex items-center gap-1.5 ${
-                        isChecked
-                          ? 'bg-emerald-500 text-white cursor-pointer'
-                          : 'bg-slate-100 text-slate-500 cursor-pointer border border-slate-200 hover:bg-slate-200/60'
-                      }`}
-                    >
-                      {isChecked ? <CheckCircle size={13} className="stroke-[3]" /> : <Lock size={13} />}
-                      {isChecked ? 'Completed' : 'Tap to Log'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                    {isChecked ? <CheckCircle size={13} className="stroke-[3]" /> : <Lock size={13} />}
+                    {isChecked ? 'Completed' : 'Tap to Log'}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
