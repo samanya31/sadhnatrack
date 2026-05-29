@@ -1,1050 +1,718 @@
-import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
-import { supabase, fetchUserTargets, updateTargetCompletion, calculateTargetActualProgress } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import {
-  Save,
-  Clock,
-  RotateCcw,
-  BookOpen,
-  Headphones,
-  UserCheck,
-  Calendar as CalendarIcon,
-  Hash,
-  Book,
-  Moon,
-  CheckCircle2,
-  Hammer,
-  User,
-  Bookmark,
-  MessageSquare,
+  PenLine,
+  Target,
+  History,
   BarChart3,
-  Dumbbell,
-  X
+  Flame,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  ArrowRight,
+  TrendingUp,
+  Award,
+  BookOpenCheck,
+  Compass
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { TargetWelcomeModal } from '../components/TargetWelcomeModal';
+import studashImg from '../assets/studash.png';
+import studashMobImg from '../assets/studash_mob.png';
 
-
-// 12-hour time picker helper
-const parse24to12 = (time24: string) => {
-  if (!time24) return { hour: '', minute: '', period: 'AM' };
-  const [h, m] = time24.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return { hour: String(hour12), minute: String(m).padStart(2, '0'), period };
-};
-
-const to24 = (hour: string, minute: string, period: string) => {
-  if (!hour || !minute) return '';
-  let h = parseInt(hour);
-  if (period === 'AM' && h === 12) h = 0;
-  else if (period === 'PM' && h !== 12) h += 12;
-  return `${String(h).padStart(2, '0')}:${minute}`;
-};
-
-const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
-  const parsed = parse24to12(value);
-  const [isOpen, setIsOpen] = useState(false);
-  const [openTime, setOpenTime] = useState(0);
-  const [focusedField, setFocusedField] = useState<'hour' | 'minute'>('hour');
-  
-  const [localHour, setLocalHour] = useState(parsed.hour);
-  const [localMinute, setLocalMinute] = useState(parsed.minute);
-  const [localPeriod, setLocalPeriod] = useState(parsed.period);
-
-  const hourInputRef = React.useRef<HTMLInputElement>(null);
-  const minuteInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Sync local state when parent value changes or modal opens
-  React.useEffect(() => {
-    if (isOpen) {
-      setOpenTime(Date.now());
-      setLocalHour(parsed.hour);
-      setLocalMinute(parsed.minute);
-      setLocalPeriod(parsed.period);
-      setFocusedField('hour');
-      
-      // Focus the hour input after a short delay for mount transition
-      const timer = setTimeout(() => {
-        hourInputRef.current?.focus();
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, parsed.hour, parsed.minute, parsed.period]);
-
-  const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '');
-    if (val.length > 2) val = val.slice(0, 2);
-    
-    setLocalHour(val);
-
-    if (val !== '') {
-      const num = parseInt(val);
-      if (num > 12) {
-        val = '12';
-        setLocalHour('12');
-      }
-      
-      // Auto-tab to minutes if 2 digits are entered, or a single digit from 2 to 9 is typed
-      if (val.length === 2 || (num >= 2 && num <= 9)) {
-        setTimeout(() => {
-          minuteInputRef.current?.focus();
-          setFocusedField('minute');
-        }, 50);
-      }
-    }
-  };
-
-  const handleHourKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      minuteInputRef.current?.focus();
-      setFocusedField('minute');
-    }
-  };
-
-  const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^0-9]/g, '');
-    if (val.length > 2) val = val.slice(0, 2);
-
-    setLocalMinute(val);
-
-    if (val !== '') {
-      const num = parseInt(val);
-      if (num > 59) {
-        val = '59';
-        setLocalMinute('59');
-      }
-    }
-  };
-
-  const handleMinuteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && localMinute === '') {
-      e.preventDefault();
-      hourInputRef.current?.focus();
-      setFocusedField('hour');
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      handleOK();
-    }
-  };
-
-  const handleOK = () => {
-    if (!localHour && !localMinute) {
-      onChange('');
-    } else {
-      const nextHour = localHour || '12';
-      const nextMinute = localMinute || '00';
-      onChange(to24(nextHour, nextMinute, localPeriod));
-    }
-    setIsOpen(false);
-  };
-
-  const handleClear = () => {
-    setLocalHour('');
-    setLocalMinute('');
-    onChange('');
-    setIsOpen(false);
-  };
+// Circular Progress Dial Component
+const ProgressDial = ({
+  value,
+  target,
+  title,
+  subtitle,
+  icon: Icon,
+  colorClass,
+  strokeColor,
+  formatValue
+}: {
+  value: number;
+  target: number;
+  title: string;
+  subtitle: string;
+  icon: any;
+  colorClass: string;
+  strokeColor: string;
+  formatValue: (v: number, t: number) => string;
+}) => {
+  const percentage = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="relative w-full">
-      {/* Trigger Button showing the selected time in a beautiful pill display */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen(true);
-        }}
-        className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full text-left focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all shadow-sm group hover:border-slate-350 cursor-pointer disabled:cursor-not-allowed"
-      >
-        <Icon size={18} className="text-slate-400 group-hover:text-primary-500 transition-colors shrink-0" />
-        <div className="flex-1 text-slate-800 font-extrabold text-sm">
-          {value ? (
-            <span className="flex items-center gap-1.5 flex-wrap">
-              <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.hour.padStart(2, '0')}</span>
-              <span className="text-slate-350 font-medium">:</span>
-              <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.minute}</span>
-              <span className="ml-1 text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-primary-50 text-primary-600 border border-primary-100/50">{parsed.period}</span>
-            </span>
-          ) : (
-            <span className="text-slate-400 font-medium">Select Time</span>
-          )}
+    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 flex flex-col items-center justify-between text-center min-h-[260px] relative overflow-hidden group hover:shadow-md transition-all duration-300">
+      <div className="flex flex-col items-center gap-1 z-10 w-full">
+        <div className={`p-3 rounded-2xl ${colorClass} bg-opacity-10 text-opacity-100 flex items-center justify-center mb-2`}>
+          <Icon size={20} className="stroke-[2.5]" />
         </div>
-      </button>
+        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">{title}</h3>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{subtitle}</p>
+      </div>
 
-      {/* Centered Modal Popup */}
-      {isOpen && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop with premium blur and click safety check (preventing ghost-click race conditions) */}
-          <div 
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (Date.now() - openTime > 350) {
-                setIsOpen(false);
-              }
+      <div className="relative my-4 flex items-center justify-center">
+        <svg className="w-32 h-32 transform -rotate-90">
+          <circle cx="64" cy="64" r={radius} className="stroke-slate-100 fill-none stroke-[8]" />
+          <circle
+            cx="64"
+            cy="64"
+            r={radius}
+            className="fill-none stroke-[8] transition-all duration-1000 ease-out"
+            style={{
+              stroke: strokeColor,
+              strokeDasharray: circumference,
+              strokeDashoffset: strokeDashoffset,
             }}
+            strokeLinecap="round"
           />
-          
-          {/* Modal Box */}
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-[320px] sm:max-w-[340px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 p-5 sm:p-6 flex flex-col gap-5 sm:gap-6 z-10 animate-in fade-in zoom-in-95 duration-200"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-              <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Set Time
-              </span>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                <X size={16} className="stroke-[3]" />
-              </button>
-            </div>
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
+          <span className="text-base font-black text-slate-800 leading-none">{formatValue(value, target)}</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{percentage}%</span>
+        </div>
+      </div>
 
-            {/* Large Digital Keyboard-Editable Input & AM/PM Toggle */}
-            <div className="flex items-center justify-center gap-2 py-3 px-2 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
-              <input
-                ref={hourInputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="12"
-                value={localHour || ''}
-                onChange={handleHourChange}
-                onKeyDown={handleHourKeyDown}
-                onFocus={(e) => {
-                  setFocusedField('hour');
-                  e.target.select();
-                }}
-                className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
-                  focusedField === 'hour'
-                    ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
-                    : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
-                }`}
-              />
-              
-              <span className="text-xl sm:text-2xl font-medium text-slate-300 select-none">:</span>
-              
-              <input
-                ref={minuteInputRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="00"
-                value={localMinute || ''}
-                onChange={handleMinuteChange}
-                onKeyDown={handleMinuteKeyDown}
-                onFocus={(e) => {
-                  setFocusedField('minute');
-                  e.target.select();
-                }}
-                className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
-                  focusedField === 'minute'
-                    ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
-                    : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
-                }`}
-              />
-              
-              {/* Period stack inside the display */}
-              <div className="flex flex-col gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 shadow-sm ml-1">
-                <button
-                  type="button"
-                  onClick={() => setLocalPeriod('AM')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                    localPeriod === 'AM'
-                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >AM</button>
-                <button
-                  type="button"
-                  onClick={() => setLocalPeriod('PM')}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                    localPeriod === 'PM'
-                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
-                      : 'text-slate-400 hover:text-slate-600'
-                  }`}
-                >PM</button>
-              </div>
-            </div>
-
-            {/* Bottom Actions */}
-            <div className="flex gap-2.5 sm:gap-3 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={handleClear}
-                className="flex-1 py-2.5 sm:py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider transition-colors border border-red-100/60 shadow-sm"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={handleOK}
-                className="flex-1 py-2.5 sm:py-3 bg-emerald-800 text-white hover:bg-emerald-900 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-800/15 transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <div className="text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-xl uppercase tracking-widest z-10">
+        Goal: {target}
+      </div>
     </div>
   );
 };
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [formData, setFormData] = useState({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    wakeup_time: '',
-    sleep_time: '',
-    rounds_completed: 0,
-    rounds_completed_by: '',
-    rounds_description: '',
-    hearing_done: false,
-    hearing_minutes: 0,
-    hearing_title: '',
-    hearing_speaker: '',
-    reading_done: false,
-    reading_minutes: 0,
-    reading_book: '',
-    reading_sloka: '',
-    seva_performed: false,
-    seva_minutes: 0,
-    seva_topic: '',
-    exercise_done: false,
-    exercise_minutes: 0,
-    exercise_description: '',
-    mangal_arti: false,
-    tulasi_arti: false,
-    morning_japa: false,
-    morning_hearing: false,
-    morning_comment: '',
-    status: 'draft' as 'draft' | 'submitted'
-  });
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [entryId, setEntryId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const entryIdRef = React.useRef<string | null>(null);
+  const [todayEntry, setTodayEntry] = useState<any>(null);
+  const [allEntries, setAllEntries] = useState<any[]>([]);
+  const [userTargets, setUserTargets] = useState<any[]>([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
-  // Keep ref in sync with state for use in closures
-  React.useEffect(() => {
-    entryIdRef.current = entryId;
-  }, [entryId]);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-  const [targets, setTargets] = useState<any[]>([]);
-  const [showWelcomeTargets, setShowWelcomeTargets] = useState(false);
-
-  const fetchTargetsData = async (userId: string) => {
-    try {
-      const userTargets = await fetchUserTargets(userId);
-      const targetsWithProgress = await Promise.all(
-        userTargets.map(async (target: any) => {
-          let actualProgress = 0;
-          if (target.metric !== 'custom_milestone') {
-            actualProgress = await calculateTargetActualProgress(
-              userId,
-              target.metric,
-              target.start_date,
-              target.end_date
-            );
-          }
-          return {
-            ...target,
-            actualProgress
-          };
-        })
-      );
-      setTargets(targetsWithProgress);
-
-      // Smart trigger for Welcome modal
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      const lastShown = localStorage.getItem('last_targets_modal_shown_date');
-      if (userTargets.length > 0 && lastShown !== todayStr) {
-        setShowWelcomeTargets(true);
-        localStorage.setItem('last_targets_modal_shown_date', todayStr);
-      }
-    } catch (err) {
-      console.error('Error fetching targets:', err);
+  // Hardcoded premium banners for Ekadashi, Temple events, and Quotes
+  const banners = [
+    {
+      id: 1,
+      title: "Ekadashi Mahadvadashi Alert 🌌",
+      description: "Prepare for the upcoming Ekadashi. Plan extra rounds of chanting, reading, and pure fasting from grains to refresh your spirit.",
+      badge: "Spiritual Event",
+      bgClass: "from-indigo-950 via-purple-900 to-indigo-900 text-white",
+      badgeClass: "bg-purple-500/30 text-purple-200 border-purple-400/30",
+      cta: "Schedule Extra Rounds",
+      action: () => navigate('/targets')
+    },
+    {
+      id: 2,
+      title: "Weekly Sangha & saturday Feast 🛕",
+      description: "Join fellow devotees this Saturday at 6:30 PM for ecstatic congregational Kirtan, a deep discourse, and delicious Mahaprasadam.",
+      badge: "Temple Program",
+      bgClass: "from-amber-950 via-orange-900 to-rose-900 text-white",
+      badgeClass: "bg-orange-500/30 text-orange-200 border-orange-400/30",
+      cta: "Log Sadhana Log",
+      action: () => navigate('/log')
+    },
+    {
+      id: 3,
+      title: "Prabhupada Vani Inspiration 📖",
+      description: "\"By chanting the Hare Krishna mantra, one's heart is cleansed of all dirty things, and one is immediately elevated to the spiritual platform.\"",
+      badge: "Daily Quote",
+      bgClass: "from-emerald-950 via-teal-900 to-emerald-900 text-white",
+      badgeClass: "bg-emerald-500/30 text-emerald-200 border-emerald-400/30",
+      cta: "Read Books Today",
+      action: () => navigate('/log')
     }
-  };
+  ];
 
-  // Sync targets progress when logs auto-save
-  React.useEffect(() => {
-    if (userProfile?.id && lastSaved) {
-      fetchTargetsData(userProfile.id);
-    }
-  }, [lastSaved]);
+  // Auto rotate banners every 6 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
-  const handleToggleTargetComplete = async (targetId: string, isCompleted: boolean) => {
-    if (!userProfile?.id) return;
-    try {
-      await updateTargetCompletion(targetId, isCompleted);
-      await fetchTargetsData(userProfile.id);
-    } catch (err) {
-      console.error('Failed to toggle completion:', err);
-    }
-  };
-
-  // Fetch user profile on mount
-  React.useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*, bace:baces(name)')
-          .eq('id', user.id)
-          .single();
-        setUserProfile(data);
-        fetchTargetsData(user.id);
-      }
-    };
-    fetchProfile();
-  }, []);
-
-  // Fetch today's entry on mount or date change
-  React.useEffect(() => {
-    const fetchTodayEntry = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data } = await supabase
-          .from('sadhana_entries')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('date', formData.date)
-          .maybeSingle();
-
-        if (data) {
-          setEntryId(data.id);
-          setFormData({
-            date: data.date,
-            wakeup_time: data.wakeup_time || '',
-            sleep_time: data.sleep_time || '',
-            rounds_completed: data.rounds_completed || 0,
-            rounds_completed_by: data.rounds_completed_by || '',
-            rounds_description: data.rounds_description || '',
-            hearing_done: data.hearing_done || false,
-            mangal_arti: data.mangal_arti || false,
-            tulasi_arti: data.tulasi_arti || false,
-            morning_japa: data.morning_japa || false,
-            morning_hearing: data.morning_hearing || false,
-            morning_comment: data.morning_comment || '',
-            hearing_minutes: data.hearing_minutes || 0,
-            hearing_speaker: data.hearing_speaker || '',
-            hearing_title: data.hearing_title || '',
-            reading_done: data.reading_done || false,
-            reading_minutes: data.reading_minutes || 0,
-            reading_book: data.reading_book || '',
-            reading_sloka: data.reading_sloka || '',
-            seva_performed: data.seva_performed || false,
-            seva_minutes: data.seva_minutes || 0,
-            seva_topic: data.seva_topic || '',
-            exercise_done: data.exercise_done || false,
-            exercise_minutes: data.exercise_minutes || 0,
-            exercise_description: data.exercise_description || '',
-            status: data.status || 'draft'
-          });
-          setLastSaved(new Date(data.created_at));
-        } else {
-          setEntryId(null);
-          // Reset fields but keep date
-          setFormData(prev => ({
-            ...prev,
-            wakeup_time: '',
-            sleep_time: '',
-            rounds_completed: 0,
-            rounds_completed_by: '',
-            rounds_description: '',
-            hearing_done: false,
-            hearing_minutes: 0,
-            hearing_title: '',
-            hearing_speaker: '',
-            reading_done: false,
-            reading_minutes: 0,
-            reading_book: '',
-            reading_sloka: '',
-            seva_performed: false,
-            seva_minutes: 0,
-            seva_topic: '',
-            exercise_done: false,
-            exercise_minutes: 0,
-            exercise_description: '',
-            mangal_arti: false,
-            tulasi_arti: false,
-            morning_japa: false,
-            morning_hearing: false,
-            morning_comment: '',
-            status: 'draft'
-          }));
-        }
-      } catch (err) {
-        console.error('Error fetching entry:', err);
-      }
+  // Robust streak calculation
+  const calculateStreak = (entries: any[]) => {
+    if (!entries || entries.length === 0) return 0;
+    const loggedDates = new Set(entries.map(e => e.date));
+    let streak = 0;
+    let checkDate = new Date();
+    
+    const formatDateStr = (d: Date) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
     };
 
-    fetchTodayEntry();
-  }, [formData.date]);
-
-  const sanitizePayload = (data: typeof formData) => {
-    const sanitized = { ...data };
-    // Convert empty strings to null for time and numeric fields to avoid DB errors
-    if (sanitized.wakeup_time === "") sanitized.wakeup_time = null as any;
-    if (sanitized.sleep_time === "") sanitized.sleep_time = null as any;
-    if (sanitized.rounds_completed_by === "") sanitized.rounds_completed_by = null as any;
-    return sanitized;
+    let checkStr = formatDateStr(checkDate);
+    
+    // Check if logged today or yesterday. If neither, streak is broken
+    if (!loggedDates.has(checkStr)) {
+      checkDate.setDate(checkDate.getDate() - 1);
+      checkStr = formatDateStr(checkDate);
+      if (!loggedDates.has(checkStr)) {
+        return 0;
+      }
+    }
+    
+    // Count consecutive days backward
+    while (true) {
+      const currentStr = formatDateStr(checkDate);
+      if (loggedDates.has(currentStr)) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
   };
 
-  // Auto-save logic (Debounced)
-  const saveDraft = async (dataToSave: typeof formData) => {
-    if (dataToSave.status === 'submitted') return; // Don't auto-save if already submitted
+  // Monthly reading minutes accumulator
+  const getMonthlyReadingMinutes = (entries: any[]) => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    const monthly = entries.filter((e: any) => {
+      const d = new Date(e.date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+    
+    return monthly.reduce((sum, e) => sum + (e.reading_minutes || 0), 0);
+  };
 
-    setAutoSaveStatus('saving');
+  const fetchAllData = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // 1. Fetch Profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*, bace:baces(name)')
+        .eq('id', userId)
+        .single();
+      setUserProfile(profile);
 
-      const payload = {
-        ...sanitizePayload(dataToSave),
-        user_id: user.id,
-        ...(entryIdRef.current ? { id: entryIdRef.current } : {})
-      };
+      // 2. Fetch targets
+      const { data: targets } = await supabase
+        .from('sadhana_targets')
+        .select('*')
+        .eq('user_id', userId);
+      setUserTargets(targets || []);
 
-      const { data, error } = await supabase
+      // 3. Fetch Entries
+      const { data: entries } = await supabase
         .from('sadhana_entries')
-        .upsert(payload, { onConflict: 'user_id, date' })
-        .select()
-        .maybeSingle();
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false });
+      
+      const entriesList = entries || [];
+      setAllEntries(entriesList);
 
-      if (error) throw error;
+      // Extract today's entry
+      const today = entriesList.find((e: any) => e.date === todayStr);
+      setTodayEntry(today || null);
 
-      if (data) {
-        setEntryId(data.id);
-        setLastSaved(new Date());
-        setAutoSaveStatus('saved');
-      }
     } catch (err) {
-      console.error('Auto-save error:', err);
-      setAutoSaveStatus('error');
+      console.error("Error loading dashboard data:", err);
     }
   };
 
-  // Trigger auto-save when formData changes (except date change which triggers fetch)
-  React.useEffect(() => {
-    if (formData.status === 'submitted') return;
-
-    const timer = setTimeout(() => {
-      saveDraft(formData);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [
-    formData.wakeup_time,
-    formData.sleep_time,
-    formData.rounds_completed,
-    formData.rounds_completed_by,
-    formData.rounds_description,
-    formData.hearing_done,
-    formData.hearing_minutes,
-    formData.hearing_title,
-    formData.hearing_speaker,
-    formData.reading_done,
-    formData.reading_minutes,
-    formData.reading_book,
-    formData.reading_sloka,
-    formData.seva_performed,
-    formData.seva_minutes,
-    formData.seva_topic,
-    formData.exercise_done,
-    formData.exercise_minutes,
-    formData.exercise_description,
-    formData.mangal_arti,
-    formData.tulasi_arti,
-    formData.morning_japa,
-    formData.morning_hearing,
-    formData.morning_comment
-  ]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (window.confirm('Are you sure you want to final submit? You won\'t be able to edit this entry later.')) {
-      setLoading(true);
-      setSuccess(false);
-
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('No user found');
-
-        const payload = {
-          ...sanitizePayload(formData),
-          user_id: user.id,
-          status: 'submitted',
-          ...(entryIdRef.current ? { id: entryIdRef.current } : {})
-        };
-
-        const { error } = await supabase
-          .from('sadhana_entries')
-          .upsert(payload, { onConflict: 'user_id, date' });
-
-        if (error) throw error;
-        setSuccess(true);
-        setFormData(prev => ({ ...prev, status: 'submitted' }));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (err) {
-        console.error(err);
-        alert('Error final submitting sadhana entry.');
-      } finally {
-        setLoading(false);
+  useEffect(() => {
+    const initializeDashboard = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/login');
+        return;
       }
+      await fetchAllData(user.id);
+      setLoading(false);
+    };
+
+    initializeDashboard();
+  }, [navigate]);
+
+  // Handle optimistic checkbox toggles for the Morning program from the dashboard!
+  const handleToggleMorningItem = async (field: 'mangal_arti' | 'tulasi_arti' | 'morning_japa' | 'morning_hearing') => {
+    if (!userProfile?.id) return;
+    
+    const currentValue = todayEntry ? todayEntry[field] : false;
+    const newValue = !currentValue;
+    
+    // 1. Update local state immediately for instant feedback
+    setTodayEntry((prev: any) => {
+      const base = prev || {
+        date: todayStr,
+        mangal_arti: false,
+        tulasi_arti: false,
+        morning_japa: false,
+        morning_hearing: false,
+        rounds_completed: 0,
+        reading_minutes: 0,
+        hearing_minutes: 0
+      };
+      return {
+        ...base,
+        [field]: newValue
+      };
+    });
+
+    try {
+      // 2. Sync to Supabase
+      const payload: any = {
+        user_id: userProfile.id,
+        date: todayStr,
+        [field]: newValue
+      };
+      
+      if (todayEntry?.id) {
+        payload.id = todayEntry.id;
+      }
+      
+      const { error } = await supabase
+        .from('sadhana_entries')
+        .upsert(payload, { onConflict: 'user_id, date' });
+        
+      if (error) throw error;
+      
+      // 3. Re-fetch all entries in background to recalculate averages & streaks
+      await fetchAllData(userProfile.id);
+    } catch (err) {
+      console.error("Failed to sync morning item checkbox:", err);
+      // Revert state
+      setTodayEntry((prev: any) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          [field]: currentValue
+        };
+      });
+      alert("Failed to update status. Please check connection.");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 border-4 border-primary-100 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-slate-500 font-bold text-sm tracking-widest uppercase">Loading Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Compute stats
+  const todayRounds = todayEntry?.rounds_completed || 0;
+  const dailyJapaTarget = 16; // Standard ISKCON target
+
+  const currentStreak = calculateStreak(allEntries);
+  const streakGoal = 7; // Progress circle towards 7 days
+
+  // Adapt to reading targets
+  const readingTargetObj = userTargets.find((t: any) => {
+    return t.metric === 'reading_minutes' && t.start_date <= todayStr && t.end_date >= todayStr;
+  });
+
+  const readingGoalValue = readingTargetObj ? Number(readingTargetObj.target_value) : 1200; // default 20 hours (1200 mins)
+  const actualReadingMinutes = readingTargetObj 
+    ? allEntries.filter((e: any) => e.date >= readingTargetObj.start_date && e.date <= readingTargetObj.end_date).reduce((sum, e) => sum + (e.reading_minutes || 0), 0)
+    : getMonthlyReadingMinutes(allEntries);
+
+  const leftReadingMinutes = Math.max(0, readingGoalValue - actualReadingMinutes);
+  const leftReadingHours = (leftReadingMinutes / 60).toFixed(1);
+
+  // Quick Action Buttons
+  const quickActions = [
+    {
+      name: "Log Today's Entry",
+      description: "Log rounds, reading, hearing & seva",
+      icon: PenLine,
+      color: "from-emerald-500 to-teal-600 shadow-emerald-200",
+      path: "/log"
+    },
+    {
+      name: "Spiritual Targets",
+      description: "Set custom reading and chanting goals",
+      icon: Target,
+      color: "from-rose-500 to-orange-500 shadow-rose-200",
+      path: "/targets"
+    },
+    {
+      name: "Analytical Reports",
+      description: "View progress charts and logs summary",
+      icon: BarChart3,
+      color: "from-blue-500 to-indigo-600 shadow-blue-200",
+      path: "/reports"
+    },
+    {
+      name: "Sadhana History",
+      description: "View, review, and search past logs",
+      icon: History,
+      color: "from-amber-500 to-yellow-600 shadow-amber-250",
+      path: "/history"
+    }
+  ];
+
+  // Hardcoded Notice Board Announcements with premium style treatments
+  const notices = [
+    {
+      id: 1,
+      type: "info",
+      title: "Collective Morning Japa Session",
+      content: "Join daily Japa session at 5:00 AM in the BACE Temple Hall. Elevate your morning consciousness together.",
+      icon: Info,
+      badge: "BACE Schedule",
+      borderClass: "border-blue-100 bg-blue-50/30 text-blue-800",
+      iconClass: "bg-blue-100 text-blue-600",
+      badgeClass: "bg-blue-100/60 text-blue-700"
+    },
+    {
+      id: 2,
+      type: "warning",
+      title: "Complete Your Weekly Draft Submissions",
+      content: "Ensure all draft logs for the last week are completed and 'Final Submitted'. Reports are scheduled to compile on Sunday.",
+      icon: AlertTriangle,
+      badge: "Urgent Reminder",
+      borderClass: "border-amber-100 bg-amber-50/30 text-amber-800",
+      iconClass: "bg-amber-100 text-amber-600",
+      badgeClass: "bg-amber-100/60 text-amber-700"
+    },
+    {
+      id: 3,
+      type: "success",
+      title: "Outstanding Chanting Performance",
+      content: "Amazing collective effort! Our BACE community members crossed a total of 1,200 rounds chanting this week! Let's keep it up! 🎉",
+      icon: Award,
+      badge: "Community Milestone",
+      borderClass: "border-emerald-100 bg-emerald-50/30 text-emerald-800",
+      iconClass: "bg-emerald-100 text-emerald-600",
+      badgeClass: "bg-emerald-100/60 text-emerald-700"
+    }
+  ];
 
   return (
     <StudentLayout>
-      <div className="max-w-4xl mx-auto px-1 sm:px-0 mb-10 animate-fade-in">
-        <div className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 animate-slide-up">
-          <div className="text-center md:text-left">
-            <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4 justify-center md:justify-start">
-              <div className="w-12 h-12 bg-primary-600 rounded-2xl flex items-center justify-center text-white shadow-xl rotate-3">
-                <Save size={28} />
-              </div>
-              Sadhna Entry
-            </h1>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
-              <p className="text-slate-500 font-medium text-lg">Log your daily spiritual progress</p>
-              {userProfile?.bace?.name && (
-                <div className="px-3 py-1 bg-primary-50 text-primary-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border border-primary-100 flex items-center gap-2">
-                  <Hammer size={12} className="rotate-45" />
-                  {userProfile.bace.name}
-                </div>
-              )}
+      <div className="max-w-[1200px] mx-auto px-1 sm:px-0 mb-10 animate-in fade-in duration-500">
+        
+        {/* 1. HERO BANNER CARD */}
+        <div className="relative rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-200/50 min-h-[220px] md:min-h-[280px] flex items-center p-6 md:p-12 mb-8 group">
+          {/* Desktop Background */}
+          <img 
+            src={studashImg} 
+            alt="Dashboard" 
+            className="absolute inset-0 w-full h-full object-cover hidden md:block group-hover:scale-102 transition-transform duration-700 ease-out" 
+          />
+          {/* Mobile Background */}
+          <img 
+            src={studashMobImg} 
+            alt="Dashboard Mobile" 
+            className="absolute inset-0 w-full h-full object-cover md:hidden group-hover:scale-102 transition-transform duration-700 ease-out" 
+          />
+          
+          {/* Dark overlay for rich contrast */}
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/60 to-transparent"></div>
+          
+          <div className="relative z-10 max-w-xl text-white">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="bg-primary-500/30 text-primary-200 border border-primary-400/30 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-lg">
+                {userProfile?.bace?.name || 'BACE Devotee'}
+              </span>
+              <span className="bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-lg flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                Active
+              </span>
             </div>
-          </div>
-
-          <div className="flex flex-col items-center md:items-end gap-2">
-            {formData.status === 'submitted' && (
-              <div className="px-4 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-100">
-                Final Submitted
-              </div>
-            )}
-            {formData.status === 'draft' && (
-              <div className="flex items-center gap-2 px-4 py-1 bg-slate-50 text-slate-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-slate-100">
-                {autoSaveStatus === 'saving' ? (
-                  <>
-                    <RotateCcw size={12} className="animate-spin" />
-                    Saving Draft...
-                  </>
-                ) : autoSaveStatus === 'saved' ? (
-                  <>
-                    <CheckCircle2 size={12} className="text-emerald-500" />
-                    Draft Saved {lastSaved && `at ${format(lastSaved, 'HH:mm')}`}
-                  </>
-                ) : (
-                  <>
-                    <Save size={12} />
-                    Autosave Active
-                  </>
-                )}
-              </div>
-            )}
+            
+            <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-tight mb-2">
+              Hare Krishna, {userProfile?.full_name || 'Student'}! 🙏
+            </h1>
+            <p className="text-slate-200 text-xs md:text-sm font-bold uppercase tracking-wider mb-4 opacity-90">
+              Welcome back to your spiritual dashboard
+            </p>
+            <p className="text-slate-350 text-xs md:text-sm font-medium leading-relaxed max-w-md hidden sm:block">
+              "By chanting the Hare Krishna Maha Mantra, our hearts are cleansed, our habits are refined, and we find true spiritual peace."
+            </p>
           </div>
         </div>
 
-        {success && (
-          <div className="mb-8 p-6 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 size={24} className="shrink-0 text-emerald-500" />
-              <span className="font-black text-base md:text-lg">Sadhana entry saved successfully!</span>
-            </div>
-            <button
-              onClick={() => navigate('/reports')}
-              className="w-full md:w-auto bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm hover:bg-emerald-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
-            >
-              <BarChart3 size={18} />
-              View Reports
-            </button>
-          </div>
-        )}
+        {/* 2. PROGRESS DIALS GRID */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+          
+          {/* Japa Progress Circle */}
+          <ProgressDial
+            value={todayRounds}
+            target={dailyJapaTarget}
+            title="Daily Japa"
+            subtitle="Rounds Chanted Today"
+            icon={Flame}
+            colorClass="bg-orange-500 text-orange-600"
+            strokeColor="#EA580C"
+            formatValue={(v) => `${v} Rnds`}
+          />
 
+          {/* Logging Streak Progress Circle */}
+          <ProgressDial
+            value={currentStreak}
+            target={streakGoal}
+            title="Weekly Streak"
+            subtitle="Consecutive Logged Days"
+            icon={Sparkles}
+            colorClass="bg-red-500 text-red-650"
+            strokeColor="#DC2626"
+            formatValue={(v) => `🔥 ${v} Days`}
+          />
 
+          {/* Reading Target Progress Circle (Fulfills exact User Request for hours remaining) */}
+          <ProgressDial
+            value={actualReadingMinutes}
+            target={readingGoalValue}
+            title="Monthly Reading"
+            subtitle="Reading Goal Progress"
+            icon={BookOpenCheck}
+            colorClass="bg-blue-500 text-blue-650"
+            strokeColor="#2563EB"
+            formatValue={() => `${leftReadingHours}h left`}
+          />
 
-        <form onSubmit={handleSubmit} className="space-y-6 md:space-y-10">
-          {/* Basic Info */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50 relative z-20">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm">
-                  <CalendarIcon size={24} />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Basic Info</h2>
-              </div>
-              {formData.status !== 'submitted' && (
-                <button
-                  type="button"
-                  onClick={() => saveDraft(formData)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                >
-                  <Save size={14} />
-                  Save Draft
-                </button>
-              )}
-            </div>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Date</label>
-                <input type="date" required value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="input-field h-14 rounded-2xl" />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Sleep Time (Prev. Night)</label>
-                <TimePicker icon={Moon} value={formData.sleep_time} onChange={(val) => setFormData({ ...formData, sleep_time: val })} disabled={formData.status === 'submitted'} />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Wake-up Time</label>
-                <TimePicker icon={Clock} value={formData.wakeup_time} onChange={(val) => setFormData({ ...formData, wakeup_time: val })} disabled={formData.status === 'submitted'} />
-              </div>
-            </div>
-          </section>
-
-          {/* Morning Program Section */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 shadow-sm">
-                  <Moon size={24} />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Morning Program</h2>
-              </div>
-              {formData.status !== 'submitted' && (
-                <button
-                  type="button"
-                  onClick={() => saveDraft(formData)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                >
-                  <Save size={14} />
-                  Save Draft
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {[
-                { key: 'mangal_arti', label: 'Mangal Arti' },
-                { key: 'tulasi_arti', label: 'Tulasi Arti' },
-                { key: 'morning_japa', label: 'Japa' },
-                { key: 'morning_hearing', label: 'Hearing' },
-              ].map((item) => (
-                <div
-                  key={item.key}
-                  onClick={() => formData.status !== 'submitted' && setFormData({ ...formData, [item.key]: !formData[item.key as keyof typeof formData] })}
-                  className={`
-                    p-4 rounded-2xl border transition-all cursor-pointer flex flex-col items-center gap-2 text-center
-                    ${formData[item.key as keyof typeof formData]
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm'
-                      : 'bg-slate-50 border-slate-100 text-slate-400 hover:bg-slate-100'}
-                  `}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${formData[item.key as keyof typeof formData] ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-400'}`}>
-                    {formData[item.key as keyof typeof formData] ? <CheckCircle2 size={20} /> : <div className="w-2 h-2 bg-current rounded-full" />}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mb-10">
+          
+          {/* LEFT & CENTER PORTIONS (2 columns wide on large screen) */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            {/* 3. AUTO ROTATING ANNOUNCEMENT CAROUSEL */}
+            <div className="relative rounded-[2rem] overflow-hidden shadow-md border border-slate-200/50 p-6 md:p-8 min-h-[180px] flex flex-col justify-between transition-all duration-500">
+              {/* Dynamic sliding gradient bg based on active banner */}
+              <div className={`absolute inset-0 bg-gradient-to-br ${banners[currentBannerIndex].bgClass} opacity-95 transition-all duration-700 ease-in-out`}></div>
+              
+              {/* Dynamic decorative backdrop circles */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-xl pointer-events-none select-none"></div>
+              
+              <div className="relative z-10 w-full flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${banners[currentBannerIndex].badgeClass}`}>
+                      {banners[currentBannerIndex].badge}
+                    </span>
+                    <div className="flex gap-1">
+                      {banners.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentBannerIndex(idx)}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            idx === currentBannerIndex ? 'bg-white w-4' : 'bg-white/40 hover:bg-white/60'
+                          }`}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest leading-none">{item.label}</span>
-                  <span className="text-[10px] font-bold opacity-60 uppercase">{formData[item.key as keyof typeof formData] ? 'Attended' : 'Not Attended'}</span>
+                  
+                  <h2 className="text-lg md:text-xl font-black text-white tracking-tight leading-snug mb-2 animate-in fade-in duration-300">
+                    {banners[currentBannerIndex].title}
+                  </h2>
+                  <p className="text-white/80 text-xs md:text-sm font-medium leading-relaxed mb-6 animate-in fade-in duration-300 max-w-2xl">
+                    {banners[currentBannerIndex].description}
+                  </p>
                 </div>
-              ))}
+
+                <div className="flex items-center justify-between mt-auto">
+                  <button
+                    onClick={banners[currentBannerIndex].action}
+                    className="bg-white text-slate-900 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:bg-slate-50 transition-colors flex items-center gap-2 group/btn cursor-pointer"
+                  >
+                    {banners[currentBannerIndex].cta}
+                    <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                  </button>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)}
+                      className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % banners.length)}
+                      className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* 4. TODAY'S CHECKLIST MILESTONES (With Instant Click Sync) */}
+            <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200/50">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                    <Compass size={20} className="text-emerald-500" />
+                    Today's Sadhana Checklist
+                  </h2>
+                  <p className="text-xs text-slate-400 font-medium">Quick tap to log milestones instantly on Supabase</p>
+                </div>
+                <button
+                  onClick={() => navigate('/log')}
+                  className="text-xs font-black text-primary-600 hover:text-primary-700 bg-primary-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-primary-100/50"
+                >
+                  Full Form
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { key: 'mangal_arti', label: 'Mangal Arti', desc: 'Attended morning Arti program' },
+                  { key: 'tulasi_arti', label: 'Tulasi Arti', desc: 'Attended Tulasi Puja program' },
+                  { key: 'morning_japa', label: 'Chanted Japa', desc: 'Completed morning chant rounds' },
+                  { key: 'morning_hearing', label: 'Heard Lecture', desc: 'Heard morning Srimad Bhagavatam' }
+                ].map((item) => {
+                  const isChecked = todayEntry ? todayEntry[item.key] : false;
+                  return (
+                    <div
+                      key={item.key}
+                      onClick={() => handleToggleMorningItem(item.key as any)}
+                      className={`
+                        p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 group/item select-none
+                        ${isChecked
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-inner'
+                          : 'bg-slate-50 border-slate-100 hover:bg-slate-100 hover:border-slate-200 text-slate-500'}
+                      `}
+                    >
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="text-xs font-black uppercase tracking-wider">{item.label}</span>
+                        <span className="text-[10px] font-medium opacity-60 leading-none">{item.desc}</span>
+                      </div>
+                      
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                        isChecked 
+                          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20' 
+                          : 'bg-white border border-slate-200 text-transparent group-hover/item:border-emerald-300'
+                      }`}>
+                        <CheckCircle size={16} className={isChecked ? 'stroke-[3.5]' : 'text-slate-200'} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5. QUICK ACTIONS GRID */}
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Optional Comment</label>
-              <textarea
-                value={formData.morning_comment}
-                onChange={(e) => setFormData({ ...formData, morning_comment: e.target.value })}
-                className="input-field min-h-[80px] py-4 rounded-2xl"
-                placeholder="Any comments on why you couldn't attend."
-              />
-            </div>
-          </section>
-
-          {/* Japa */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50 relative z-10">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
-                  <RotateCcw size={24} />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Japa Rounds</h2>
-              </div>
-              {formData.status !== 'submitted' && (
-                <button
-                  type="button"
-                  onClick={() => saveDraft(formData)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                >
-                  <Save size={14} />
-                  Save Draft
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Rounds Completed</label>
-                <input type="number" min="0" required value={formData.rounds_completed} onChange={(e) => setFormData({ ...formData, rounds_completed: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-14 rounded-2xl" />
-              </div>
-              <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Final Completion (Time)</label>
-                <TimePicker icon={Clock} value={formData.rounds_completed_by} onChange={(val) => setFormData({ ...formData, rounds_completed_by: val })} disabled={formData.status === 'submitted'} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <MessageSquare size={14} className="text-slate-400" /> Chanting Breakdown (Optional)
-                </label>
-                <textarea
-                  value={formData.rounds_description}
-                  onChange={(e) => setFormData({ ...formData, rounds_description: e.target.value })}
-                  className="input-field min-h-[80px] py-4 rounded-2xl"
-                  placeholder="e.g. 8 in morning, 4 in afternoon, 4 in night"
-                />
-              </div>
-            </div>
-          </section>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Hearing */}
-            <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm">
-                    <Headphones size={24} />
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Hearing</h2>
-                </div>
-                {formData.status !== 'submitted' && (
+              <h2 className="text-base font-black text-slate-800 uppercase tracking-widest mb-4">Quick Tools Portal</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {quickActions.map((action, idx) => (
                   <button
-                    type="button"
-                    onClick={() => saveDraft(formData)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
+                    key={idx}
+                    onClick={() => navigate(action.path)}
+                    className="bg-white border border-slate-200/50 rounded-[2rem] p-5 flex items-center gap-4 text-left group hover:shadow-md hover:border-slate-300/60 transition-all duration-300 cursor-pointer"
                   >
-                    <Save size={14} />
+                    <div className={`p-4 bg-gradient-to-br ${action.color} text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-350`}>
+                      <action.icon size={22} className="stroke-[2.5]" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">{action.name}</h3>
+                      <p className="text-[11px] font-medium text-slate-400 mt-0.5 leading-tight">{action.description}</p>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 group-hover:text-slate-400 transition-all shrink-0" />
                   </button>
-                )}
+                ))}
               </div>
+            </div>
 
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <input type="checkbox" id="hearing_done" checked={formData.hearing_done} onChange={(e) => setFormData({ ...formData, hearing_done: e.target.checked })} className="w-6 h-6 text-primary-600 rounded-lg focus:ring-primary-500 cursor-pointer" />
-                  <label htmlFor="hearing_done" className="text-sm font-black text-slate-700 cursor-pointer uppercase tracking-wider">Hearing Done?</label>
-                </div>
-
-                {formData.hearing_done && (
-                  <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Minutes</label>
-                      <input type="number" min="0" value={formData.hearing_minutes} onChange={(e) => setFormData({ ...formData, hearing_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-12 rounded-xl" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <User size={14} className="text-slate-400" /> Speaker
-                      </label>
-                      <input type="text" value={formData.hearing_speaker} onChange={(e) => setFormData({ ...formData, hearing_speaker: e.target.value })} className="input-field h-12 rounded-xl" placeholder="e.g. Srila Prabhupada" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Bookmark size={14} className="text-slate-400" /> Topic
-                      </label>
-                      <input type="text" value={formData.hearing_title} onChange={(e) => setFormData({ ...formData, hearing_title: e.target.value })} className="input-field h-12 rounded-xl" placeholder="e.g. Varna Ashrama" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Reading */}
-            <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm">
-                    <BookOpen size={24} />
-                  </div>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Reading</h2>
-                </div>
-                {formData.status !== 'submitted' && (
-                  <button
-                    type="button"
-                    onClick={() => saveDraft(formData)}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                  >
-                    <Save size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <input type="checkbox" id="reading_done" checked={formData.reading_done} onChange={(e) => setFormData({ ...formData, reading_done: e.target.checked })} className="w-6 h-6 text-primary-600 rounded-lg focus:ring-primary-500 cursor-pointer" />
-                  <label htmlFor="reading_done" className="text-sm font-black text-slate-700 cursor-pointer uppercase tracking-wider">Reading Done?</label>
-                </div>
-
-                {formData.reading_done && (
-                  <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Minutes</label>
-                      <input type="number" min="0" value={formData.reading_minutes} onChange={(e) => setFormData({ ...formData, reading_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field h-12 rounded-xl" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Book size={14} className="text-slate-400" /> Book Name
-                      </label>
-                      <input type="text" value={formData.reading_book} onChange={(e) => setFormData({ ...formData, reading_book: e.target.value })} className="input-field h-12 rounded-xl" placeholder="e.g. Bhagavad Gita" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                        <Hash size={14} className="text-slate-400" /> Sloka #
-                      </label>
-                      <input type="text" value={formData.reading_sloka} onChange={(e) => setFormData({ ...formData, reading_sloka: e.target.value })} className="input-field h-12 rounded-xl" placeholder="e.g. 2.13" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
           </div>
 
-          {/* Seva Section */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
-                  <UserCheck size={24} />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Seva Performed</h2>
-              </div>
-              {formData.status !== 'submitted' && (
-                <button
-                  type="button"
-                  onClick={() => saveDraft(formData)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                >
-                  <Save size={14} />
-                  Save Draft
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <input type="checkbox" id="seva_performed" checked={formData.seva_performed} onChange={(e) => setFormData({ ...formData, seva_performed: e.target.checked })} className="w-6 h-6 text-primary-600 rounded-lg focus:ring-primary-500 cursor-pointer" />
-                <label htmlFor="seva_performed" className="text-sm font-black text-slate-700 cursor-pointer uppercase tracking-wider">Yes, I performed Seva today</label>
-              </div>
-
-              {formData.seva_performed && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-300">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Seva Minutes</label>
-                    <div className="relative">
-                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="number" min="0" value={formData.seva_minutes} onChange={(e) => setFormData({ ...formData, seva_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field pl-12 h-14 rounded-2xl" />
-                    </div>
+          {/* RIGHT PORTION (BACE NOTICE BOARD - 1 column wide on large screen) */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-slate-200/50 h-full flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-6">
+                  <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center text-primary-600 shadow-inner">
+                    <Calendar size={20} className="stroke-[2.5]" />
                   </div>
                   <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Seva Details / Topic</label>
-                    <div className="relative">
-                      <Hammer className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="text" value={formData.seva_topic} onChange={(e) => setFormData({ ...formData, seva_topic: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" placeholder="e.g. Temple Cleaning" />
-                    </div>
+                    <h2 className="text-base font-black text-slate-800 tracking-tight">Notice Board</h2>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mt-0.5">BACE Announcements</p>
                   </div>
                 </div>
-              )}
-            </div>
-          </section>
 
-          {/* Exercise Section */}
-          <section className="glass-card rounded-[2rem] p-6 md:p-10 shadow-xl border-slate-100/50">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-teal-100 rounded-2xl flex items-center justify-center text-teal-600 shadow-sm">
-                  <Dumbbell size={24} />
-                </div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Physical Exercise</h2>
-              </div>
-              {formData.status !== 'submitted' && (
-                <button
-                  type="button"
-                  onClick={() => saveDraft(formData)}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest transition-all border border-slate-100"
-                >
-                  <Save size={14} />
-                  Save Draft
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <input type="checkbox" id="exercise_done" checked={formData.exercise_done} onChange={(e) => setFormData({ ...formData, exercise_done: e.target.checked })} className="w-6 h-6 text-primary-600 rounded-lg focus:ring-primary-500 cursor-pointer" />
-                <label htmlFor="exercise_done" className="text-sm font-black text-slate-700 cursor-pointer uppercase tracking-wider">Yes, I exercised today</label>
-              </div>
-
-              {formData.exercise_done && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2 duration-300">
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Exercise Minutes</label>
-                    <div className="relative">
-                      <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="number" min="0" value={formData.exercise_minutes} onChange={(e) => setFormData({ ...formData, exercise_minutes: parseInt(e.target.value) || 0 })} onFocus={(e) => e.target.select()} className="input-field pl-12 h-14 rounded-2xl" />
+                <div className="space-y-4">
+                  {notices.map((notice) => (
+                    <div
+                      key={notice.id}
+                      className={`p-4 rounded-2xl border ${notice.borderClass} space-y-3 flex flex-col justify-between`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${notice.badgeClass}`}>
+                          {notice.badge}
+                        </span>
+                        <div className={`p-1.5 rounded-lg ${notice.iconClass}`}>
+                          <notice.icon size={14} className="stroke-[2.5]" />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-wider leading-snug mb-1">
+                          {notice.title}
+                        </h4>
+                        <p className="text-[11px] font-medium leading-relaxed opacity-90">
+                          {notice.content}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Exercise Type / Details</label>
-                    <div className="relative">
-                      <Dumbbell className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input type="text" value={formData.exercise_description} onChange={(e) => setFormData({ ...formData, exercise_description: e.target.value })} className="input-field pl-12 h-14 rounded-2xl" placeholder="e.g. Jogging, Yoga, Gym" />
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          </section>
-
-          <div className="flex flex-col md:flex-row justify-end gap-4 pt-4 pb-20">
-            {formData.status !== 'submitted' ? (
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full md:w-auto bg-emerald-700 text-white flex items-center justify-center gap-3 px-12 py-5 text-xl font-black shadow-2xl rounded-[1.5rem] hover:bg-emerald-800 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {loading ? <RotateCcw className="animate-spin" size={28} /> : <CheckCircle2 size={28} />}
-                {loading ? 'Submitting...' : 'Final Submit'}
-              </button>
-            ) : (
-              <div className="w-full md:w-auto bg-emerald-50 text-emerald-600 flex items-center justify-center gap-3 px-12 py-5 text-xl font-black rounded-[1.5rem] border-2 border-emerald-100">
-                <CheckCircle2 size={28} />
-                Submitted
               </div>
-            )}
+
+              {/* Quick stats panel */}
+              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-center bg-slate-50 rounded-2xl p-4">
+                <div>
+                  <span className="block text-xs font-black text-slate-800 leading-none">
+                    {allEntries.length}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Logs Total</span>
+                </div>
+                <div className="h-6 w-[1px] bg-slate-200"></div>
+                <div>
+                  <span className="block text-xs font-black text-slate-800 leading-none">
+                    {allEntries.length > 0 
+                      ? (allEntries.reduce((sum, e) => sum + (e.rounds_completed || 0), 0) / allEntries.length).toFixed(1) 
+                      : 0}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Avg Rounds</span>
+                </div>
+                <div className="h-6 w-[1px] bg-slate-200"></div>
+                <div>
+                  <span className="block text-xs font-black text-slate-800 leading-none text-emerald-600 flex items-center justify-center gap-0.5">
+                    <TrendingUp size={12} />
+                    100%
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sincerity</span>
+                </div>
+              </div>
+
+            </div>
           </div>
-        </form>
 
-        {/* Modals */}
+        </div>
 
-        <TargetWelcomeModal
-          isOpen={showWelcomeTargets}
-          onClose={() => setShowWelcomeTargets(false)}
-          targets={targets}
-          onToggleComplete={handleToggleTargetComplete}
-        />
       </div>
     </StudentLayout>
   );

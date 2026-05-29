@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
+import { StudentLog } from './pages/StudentLog';
 import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
 import { StudentTargets } from './pages/StudentTargets';
@@ -136,6 +137,15 @@ function App() {
           element={
             session ? (
               (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentDashboard />
+            ) : <Navigate to="/login" replace />
+          } 
+        />
+
+        <Route 
+          path="/log" 
+          element={
+            session ? (
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentLog />
             ) : <Navigate to="/login" replace />
           } 
         />
