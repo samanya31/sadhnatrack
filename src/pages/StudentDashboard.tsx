@@ -303,7 +303,7 @@ export const StudentDashboard = () => {
               className="w-full h-full object-cover object-center"
             />
           </picture>
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-900/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-900/50 to-transparent" />
 
           <div className="relative z-10 w-full px-5 md:px-10 py-6 md:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex-1 text-left">
