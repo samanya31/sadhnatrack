@@ -25,286 +25,282 @@ import {
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
-export const StudentDashboard = () => {
-  const navigate = useNavigate();
+// 12-hour time picker helper
+const parse24to12 = (time24: string) => {
+  if (!time24) return { hour: '', minute: '', period: 'AM' };
+  const [h, m] = time24.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return { hour: String(hour12), minute: String(m).padStart(2, '0'), period };
+};
 
-  // 12-hour time picker helper
-  const parse24to12 = (time24: string) => {
-    if (!time24) return { hour: '', minute: '', period: 'AM' };
-    const [h, m] = time24.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return { hour: String(hour12), minute: String(m).padStart(2, '0'), period };
-  };
+const to24 = (hour: string, minute: string, period: string) => {
+  if (!hour || !minute) return '';
+  let h = parseInt(hour);
+  if (period === 'AM' && h === 12) h = 0;
+  else if (period === 'PM' && h !== 12) h += 12;
+  return `${String(h).padStart(2, '0')}:${minute}`;
+};
 
-  const to24 = (hour: string, minute: string, period: string) => {
-    if (!hour || !minute) return '';
-    let h = parseInt(hour);
-    if (period === 'AM' && h === 12) h = 0;
-    else if (period === 'PM' && h !== 12) h += 12;
-    return `${String(h).padStart(2, '0')}:${minute}`;
-  };
+const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
+  const parsed = parse24to12(value);
+  const [isOpen, setIsOpen] = useState(false);
+  const [openTime, setOpenTime] = useState(0);
+  const [focusedField, setFocusedField] = useState<'hour' | 'minute'>('hour');
+  
+  const [localHour, setLocalHour] = useState(parsed.hour);
+  const [localMinute, setLocalMinute] = useState(parsed.minute);
+  const [localPeriod, setLocalPeriod] = useState(parsed.period);
 
-  const TimePicker = ({ value, onChange, icon: Icon, disabled }: { value: string; onChange: (val: string) => void; icon: any; disabled?: boolean }) => {
-    const parsed = parse24to12(value);
-    const [isOpen, setIsOpen] = useState(false);
-    const [openTime, setOpenTime] = useState(0);
-    const [focusedField, setFocusedField] = useState<'hour' | 'minute'>('hour');
-    
-    const [localHour, setLocalHour] = useState(parsed.hour);
-    const [localMinute, setLocalMinute] = useState(parsed.minute);
-    const [localPeriod, setLocalPeriod] = useState(parsed.period);
+  const hourInputRef = React.useRef<HTMLInputElement>(null);
+  const minuteInputRef = React.useRef<HTMLInputElement>(null);
 
-    const hourInputRef = React.useRef<HTMLInputElement>(null);
-    const minuteInputRef = React.useRef<HTMLInputElement>(null);
-
-    // Sync local state when parent value changes or modal opens
-    React.useEffect(() => {
-      if (isOpen) {
-        setOpenTime(Date.now());
-        setLocalHour(parsed.hour);
-        setLocalMinute(parsed.minute);
-        setLocalPeriod(parsed.period);
-        setFocusedField('hour');
-        
-        // Focus the hour input after a short delay for mount transition
-        const timer = setTimeout(() => {
-          hourInputRef.current?.focus();
-        }, 150);
-        return () => clearTimeout(timer);
-      }
-    }, [isOpen, parsed.hour, parsed.minute, parsed.period]);
-
-    const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let val = e.target.value.replace(/[^0-9]/g, '');
-      if (val.length > 2) val = val.slice(0, 2);
+  // Sync local state when parent value changes or modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      setOpenTime(Date.now());
+      setLocalHour(parsed.hour);
+      setLocalMinute(parsed.minute);
+      setLocalPeriod(parsed.period);
+      setFocusedField('hour');
       
-      setLocalHour(val);
-
-      if (val !== '') {
-        const num = parseInt(val);
-        if (num > 12) {
-          val = '12';
-          setLocalHour('12');
-        }
-        
-        // Auto-tab to minutes if 2 digits are entered, or a single digit from 2 to 9 is typed
-        if (val.length === 2 || (num >= 2 && num <= 9)) {
-          setTimeout(() => {
-            minuteInputRef.current?.focus();
-            setFocusedField('minute');
-          }, 50);
-        }
-      }
-    };
-
-    const handleHourKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        minuteInputRef.current?.focus();
-        setFocusedField('minute');
-      }
-    };
-
-    const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let val = e.target.value.replace(/[^0-9]/g, '');
-      if (val.length > 2) val = val.slice(0, 2);
-
-      setLocalMinute(val);
-
-      if (val !== '') {
-        const num = parseInt(val);
-        if (num > 59) {
-          val = '59';
-          setLocalMinute('59');
-        }
-      }
-    };
-
-    const handleMinuteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Backspace' && localMinute === '') {
-        e.preventDefault();
+      // Focus the hour input after a short delay for mount transition
+      const timer = setTimeout(() => {
         hourInputRef.current?.focus();
-        setFocusedField('hour');
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        handleOK();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, parsed.hour, parsed.minute, parsed.period]);
+
+  const handleHourChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, '');
+    if (val.length > 2) val = val.slice(0, 2);
+    
+    setLocalHour(val);
+
+    if (val !== '') {
+      const num = parseInt(val);
+      if (num > 12) {
+        val = '12';
+        setLocalHour('12');
       }
-    };
-
-
-
-    const handleOK = () => {
-      if (!localHour && !localMinute) {
-        onChange('');
-      } else {
-        const nextHour = localHour || '12';
-        const nextMinute = localMinute || '00';
-        onChange(to24(nextHour, nextMinute, localPeriod));
+      
+      // Auto-tab to minutes if 2 digits are entered, or a single digit from 2 to 9 is typed
+      if (val.length === 2 || (num >= 2 && num <= 9)) {
+        setTimeout(() => {
+          minuteInputRef.current?.focus();
+          setFocusedField('minute');
+        }, 50);
       }
-      setIsOpen(false);
-    };
+    }
+  };
 
-    const handleClear = () => {
-      setLocalHour('');
-      setLocalMinute('');
+  const handleHourKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      minuteInputRef.current?.focus();
+      setFocusedField('minute');
+    }
+  };
+
+  const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/[^0-9]/g, '');
+    if (val.length > 2) val = val.slice(0, 2);
+
+    setLocalMinute(val);
+
+    if (val !== '') {
+      const num = parseInt(val);
+      if (num > 59) {
+        val = '59';
+        setLocalMinute('59');
+      }
+    }
+  };
+
+  const handleMinuteKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && localMinute === '') {
+      e.preventDefault();
+      hourInputRef.current?.focus();
+      setFocusedField('hour');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      handleOK();
+    }
+  };
+
+  const handleOK = () => {
+    if (!localHour && !localMinute) {
       onChange('');
-      setIsOpen(false);
-    };
+    } else {
+      const nextHour = localHour || '12';
+      const nextMinute = localMinute || '00';
+      onChange(to24(nextHour, nextMinute, localPeriod));
+    }
+    setIsOpen(false);
+  };
 
+  const handleClear = () => {
+    setLocalHour('');
+    setLocalMinute('');
+    onChange('');
+    setIsOpen(false);
+  };
 
+  return (
+    <div className="relative w-full">
+      {/* Trigger Button showing the selected time in a beautiful pill display */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
+        className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full text-left focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all shadow-sm group hover:border-slate-350 cursor-pointer disabled:cursor-not-allowed"
+      >
+        <Icon size={18} className="text-slate-400 group-hover:text-primary-500 transition-colors shrink-0" />
+        <div className="flex-1 text-slate-800 font-extrabold text-sm">
+          {value ? (
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.hour.padStart(2, '0')}</span>
+              <span className="text-slate-350 font-medium">:</span>
+              <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.minute}</span>
+              <span className="ml-1 text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-primary-50 text-primary-600 border border-primary-100/50">{parsed.period}</span>
+            </span>
+          ) : (
+            <span className="text-slate-400 font-medium">Select Time</span>
+          )}
+        </div>
+      </button>
 
-    return (
-      <div className="relative w-full">
-        {/* Trigger Button showing the selected time in a beautiful pill display */}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsOpen(true);
-          }}
-          className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-2 h-14 w-full text-left focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-all shadow-sm group hover:border-slate-350 cursor-pointer disabled:cursor-not-allowed"
-        >
-          <Icon size={18} className="text-slate-400 group-hover:text-primary-500 transition-colors shrink-0" />
-          <div className="flex-1 text-slate-800 font-extrabold text-sm">
-            {value ? (
-              <span className="flex items-center gap-1.5 flex-wrap">
-                <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.hour.padStart(2, '0')}</span>
-                <span className="text-slate-350 font-medium">:</span>
-                <span className="bg-slate-100/80 px-2 py-0.5 rounded-lg text-slate-700">{parsed.minute}</span>
-                <span className="ml-1 text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-primary-50 text-primary-600 border border-primary-100/50">{parsed.period}</span>
+      {/* Centered Modal Popup */}
+      {isOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop with premium blur and click safety check (preventing ghost-click race conditions) */}
+          <div 
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (Date.now() - openTime > 350) {
+                setIsOpen(false);
+              }
+            }}
+          />
+          
+          {/* Modal Box */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-[320px] sm:max-w-[340px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 p-5 sm:p-6 flex flex-col gap-5 sm:gap-6 z-10 animate-in fade-in zoom-in-95 duration-200"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+              <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Set Time
               </span>
-            ) : (
-              <span className="text-slate-400 font-medium">Select Time</span>
-            )}
-          </div>
-        </button>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                <X size={16} className="stroke-[3]" />
+              </button>
+            </div>
 
-        {/* Centered Modal Popup */}
-        {isOpen && createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop with premium blur and click safety check (preventing ghost-click race conditions) */}
-            <div 
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (Date.now() - openTime > 350) {
-                  setIsOpen(false);
-                }
-              }}
-            />
-            
-            {/* Modal Box */}
-            <div 
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[320px] sm:max-w-[340px] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 p-5 sm:p-6 flex flex-col gap-5 sm:gap-6 z-10 animate-in fade-in zoom-in-95 duration-200"
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-                <span className="text-sm font-semibold uppercase tracking-wider text-slate-400">
-                  Set Time
-                </span>
+            {/* Large Digital Keyboard-Editable Input & AM/PM Toggle */}
+            <div className="flex items-center justify-center gap-2 py-3 px-2 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
+              <input
+                ref={hourInputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="12"
+                value={localHour || ''}
+                onChange={handleHourChange}
+                onKeyDown={handleHourKeyDown}
+                onFocus={(e) => {
+                  setFocusedField('hour');
+                  e.target.select();
+                }}
+                className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  focusedField === 'hour'
+                    ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
+                    : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
+                }`}
+              />
+              
+              <span className="text-xl sm:text-2xl font-medium text-slate-300 select-none">:</span>
+              
+              <input
+                ref={minuteInputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="00"
+                value={localMinute || ''}
+                onChange={handleMinuteChange}
+                onKeyDown={handleMinuteKeyDown}
+                onFocus={(e) => {
+                  setFocusedField('minute');
+                  e.target.select();
+                }}
+                className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
+                  focusedField === 'minute'
+                    ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
+                    : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
+                }`}
+              />
+              
+              {/* Period stack inside the display */}
+              <div className="flex flex-col gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 shadow-sm ml-1">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                  <X size={16} className="stroke-[3]" />
-                </button>
-              </div>
-
-              {/* Large Digital Keyboard-Editable Input & AM/PM Toggle */}
-              <div className="flex items-center justify-center gap-2 py-3 px-2 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
-                <input
-                  ref={hourInputRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="12"
-                  value={localHour || ''}
-                  onChange={handleHourChange}
-                  onKeyDown={handleHourKeyDown}
-                  onFocus={(e) => {
-                    setFocusedField('hour');
-                    e.target.select();
-                  }}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
-                    focusedField === 'hour'
-                      ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
-                      : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
+                  onClick={() => setLocalPeriod('AM')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    localPeriod === 'AM'
+                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
+                      : 'text-slate-400 hover:text-slate-600'
                   }`}
-                />
-                
-                <span className="text-xl sm:text-2xl font-medium text-slate-300 select-none">:</span>
-                
-                <input
-                  ref={minuteInputRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="00"
-                  value={localMinute || ''}
-                  onChange={handleMinuteChange}
-                  onKeyDown={handleMinuteKeyDown}
-                  onFocus={(e) => {
-                    setFocusedField('minute');
-                    e.target.select();
-                  }}
-                  className={`w-14 h-14 sm:w-16 sm:h-16 text-center font-medium text-2xl sm:text-3xl bg-transparent border-0 focus:ring-0 outline-none transition-all placeholder:text-slate-200 ${
-                    focusedField === 'minute'
-                      ? 'text-slate-950 bg-white rounded-xl sm:rounded-2xl border border-slate-300 ring-2 ring-slate-100 shadow-sm'
-                      : 'text-slate-400 border border-transparent hover:bg-slate-50/50 rounded-xl sm:rounded-2xl'
+                >AM</button>
+                <button
+                  type="button"
+                  onClick={() => setLocalPeriod('PM')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
+                    localPeriod === 'PM'
+                      ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
+                      : 'text-slate-400 hover:text-slate-600'
                   }`}
-                />
-                
-                {/* Period stack inside the display */}
-                <div className="flex flex-col gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/50 shadow-sm ml-1">
-                  <button
-                    type="button"
-                    onClick={() => setLocalPeriod('AM')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                      localPeriod === 'AM'
-                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >AM</button>
-                  <button
-                    type="button"
-                    onClick={() => setLocalPeriod('PM')}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 ${
-                      localPeriod === 'PM'
-                        ? 'bg-white text-slate-800 shadow-sm border border-slate-200/40'
-                        : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >PM</button>
-                </div>
-              </div>
-
-              {/* Bottom Actions */}
-              <div className="flex gap-2.5 sm:gap-3 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="flex-1 py-2.5 sm:py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider transition-colors border border-red-100/60 shadow-sm"
-                >
-                  Clear
-                </button>
-                <button
-                  type="button"
-                  onClick={handleOK}
-                  className="flex-1 py-2.5 sm:py-3 bg-emerald-800 text-white hover:bg-emerald-900 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-800/15 transition-colors"
-                >
-                  OK
-                </button>
+                >PM</button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
-      </div>
-    );
-  };
+
+            {/* Bottom Actions */}
+            <div className="flex gap-2.5 sm:gap-3 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleClear}
+                className="flex-1 py-2.5 sm:py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider transition-colors border border-red-100/60 shadow-sm"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={handleOK}
+                className="flex-1 py-2.5 sm:py-3 bg-emerald-800 text-white hover:bg-emerald-900 rounded-xl sm:rounded-2xl text-xs font-bold uppercase tracking-wider shadow-md shadow-emerald-800/15 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
+export const StudentDashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
