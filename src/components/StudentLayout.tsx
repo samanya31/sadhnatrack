@@ -7,7 +7,8 @@ import {
   X, 
   ChevronRight,
   ClipboardList,
-  History
+  History,
+  Target
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
 
   const navItems = [
     { name: 'Today\'s Entry', path: '/dashboard', icon: PenLine, description: 'Log daily progress' },
+    { name: 'Spiritual Targets', path: '/targets', icon: Target, description: 'Habits & goals planner' },
     { name: 'Sadhana History', path: '/history', icon: History, description: 'View past logs' },
     { name: 'Analytical Reports', path: '/reports', icon: BarChart3, description: 'View analytics' },
   ];

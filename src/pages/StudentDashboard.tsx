@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { StudentLayout } from '../components/StudentLayout';
-import { supabase, fetchUserTargets, createUserTarget, deleteUserTarget, updateTargetCompletion, calculateTargetActualProgress } from '../lib/supabase';
+import { supabase, fetchUserTargets, updateTargetCompletion, calculateTargetActualProgress } from '../lib/supabase';
 import {
   Save,
   Clock,
@@ -20,14 +20,12 @@ import {
   MessageSquare,
   BarChart3,
   Dumbbell,
-  X,
-  Target,
-  Trash2
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { TargetWelcomeModal } from '../components/TargetWelcomeModal';
-import { TargetCreateModal } from '../components/TargetCreateModal';
+
 
 // 12-hour time picker helper
 const parse24to12 = (time24: string) => {
@@ -348,7 +346,6 @@ export const StudentDashboard = () => {
 
   const [targets, setTargets] = useState<any[]>([]);
   const [showWelcomeTargets, setShowWelcomeTargets] = useState(false);
-  const [showCreateTarget, setShowCreateTarget] = useState(false);
 
   const fetchTargetsData = async (userId: string) => {
     try {
@@ -391,21 +388,6 @@ export const StudentDashboard = () => {
     }
   }, [lastSaved]);
 
-  const handleSaveTarget = async (newTargetData: any) => {
-    if (!userProfile?.id) return;
-    try {
-      await createUserTarget({
-        ...newTargetData,
-        user_id: userProfile.id,
-        current_progress: 0,
-        is_completed: false
-      });
-      await fetchTargetsData(userProfile.id);
-    } catch (err) {
-      console.error('Failed to save target:', err);
-    }
-  };
-
   const handleToggleTargetComplete = async (targetId: string, isCompleted: boolean) => {
     if (!userProfile?.id) return;
     try {
@@ -413,18 +395,6 @@ export const StudentDashboard = () => {
       await fetchTargetsData(userProfile.id);
     } catch (err) {
       console.error('Failed to toggle completion:', err);
-    }
-  };
-
-
-  const handleDeleteTarget = async (targetId: string) => {
-    if (!userProfile?.id) return;
-    if (!confirm('Are you sure you want to delete this target?')) return;
-    try {
-      await deleteUserTarget(targetId);
-      await fetchTargetsData(userProfile.id);
-    } catch (err) {
-      console.error('Failed to delete target:', err);
     }
   };
 
@@ -710,164 +680,7 @@ export const StudentDashboard = () => {
           </div>
         )}
 
-        {/* Active Targets Section */}
-        <div className="mb-8 p-6 md:p-8 bg-white/60 backdrop-blur-xl border border-slate-100 shadow-xl rounded-[2.5rem]">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 shadow-md">
-                <Target size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">Active Goals</h2>
-                <p className="text-xs font-semibold text-slate-400">Track and build spiritual habits</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {targets.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowWelcomeTargets(true)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-sm"
-                >
-                  Review Cards
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowCreateTarget(true)}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-colors shadow-md shadow-primary-600/15"
-              >
-                + New Goal
-              </button>
-            </div>
-          </div>
 
-          {targets.length === 0 ? (
-            <div className="text-center py-8 border-2 border-dashed border-slate-150 rounded-3xl p-6 bg-slate-50/50">
-              <p className="text-sm font-bold text-slate-400 mb-4">No goals defined for this period yet.</p>
-              <button
-                type="button"
-                onClick={() => setShowCreateTarget(true)}
-                className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all"
-              >
-                Set Your First Target
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {targets.map((target) => {
-                const isMilestone = target.metric === 'custom_milestone';
-                const total = target.target_value;
-                const actual = isMilestone 
-                  ? (target.is_completed ? 1 : target.current_progress) 
-                  : target.actualProgress;
-                
-                const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
-
-                const formatMinutes = (mins: number) => {
-                  const h = Math.floor(mins / 60);
-                  const m = mins % 60;
-                  if (h === 0) return `${m}m`;
-                  if (m === 0) return `${h}h`;
-                  return `${h}h ${m}m`;
-                };
-
-                const getMetricLabel = (m: string) => {
-                  if (m === 'reading_minutes') return 'Reading';
-                  if (m === 'hearing_minutes') return 'Hearing';
-                  if (m === 'rounds_completed') return 'Rounds';
-                  if (m === 'seva_minutes') return 'Seva';
-                  if (m === 'exercise_minutes') return 'Exercise';
-                  return 'Milestone';
-                };
-
-                const getBarColor = (m: string) => {
-                  if (m === 'reading_minutes') return 'bg-emerald-500';
-                  if (m === 'hearing_minutes') return 'bg-purple-500';
-                  if (m === 'rounds_completed') return 'bg-rose-500';
-                  if (m === 'seva_minutes') return 'bg-amber-500';
-                  if (m === 'exercise_minutes') return 'bg-teal-500';
-                  return 'bg-slate-500';
-                };
-
-                return (
-                  <div key={target.id} className="p-4 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col justify-between group hover:shadow-md transition-shadow relative">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider bg-white px-2 py-0.5 rounded-md border border-slate-100">
-                            {getMetricLabel(target.metric)}
-                          </span>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider bg-white px-2 py-0.5 rounded-md border border-slate-100">
-                            {target.period_type}
-                          </span>
-                        </div>
-                        <h4 className="font-extrabold text-sm text-slate-800 mt-1.5 leading-tight group-hover:text-primary-600 transition-colors">
-                          {target.title}
-                        </h4>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteTarget(target.id)}
-                        className="p-1.5 rounded-lg text-slate-350 hover:text-red-500 hover:bg-red-50 transition-colors self-start shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 mt-auto">
-                      {isMilestone ? (
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Status</span>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleTargetComplete(target.id, !target.is_completed)}
-                            className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                              target.is_completed
-                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
-                            }`}
-                          >
-                            {target.is_completed ? 'Completed' : 'Mark Completed'}
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
-                            <span>
-                              {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
-                                ? `${formatMinutes(actual)} done`
-                                : `${actual} rounds`
-                              }
-                            </span>
-                            <span>
-                              {['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(target.metric)
-                                ? `Target: ${formatMinutes(total)}`
-                                : `Target: ${total} R`
-                              }
-                            </span>
-                          </div>
-                          
-                          {/* Progress Bar */}
-                          <div className="w-full bg-slate-200/50 h-2.5 rounded-full overflow-hidden border border-slate-200/20">
-                            <div
-                              className={`h-full ${getBarColor(target.metric)} transition-all duration-500`}
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-end text-[9px] font-black text-slate-400 uppercase tracking-wider mt-1">
-                            {percent}% Complete
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 md:space-y-10">
           {/* Basic Info */}
@@ -1225,11 +1038,6 @@ export const StudentDashboard = () => {
         </form>
 
         {/* Modals */}
-        <TargetCreateModal
-          isOpen={showCreateTarget}
-          onClose={() => setShowCreateTarget(false)}
-          onSave={handleSaveTarget}
-        />
 
         <TargetWelcomeModal
           isOpen={showWelcomeTargets}

@@ -3,6 +3,7 @@ import { Login } from './pages/Login';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
+import { StudentTargets } from './pages/StudentTargets';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
 import { AdminBaces } from './pages/AdminBaces';
@@ -153,6 +154,15 @@ function App() {
           element={
             session ? (
               (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin/reports" replace /> : <StudentReports />
+            ) : <Navigate to="/login" replace />
+          } 
+        />
+
+        <Route 
+          path="/targets" 
+          element={
+            session ? (
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentTargets />
             ) : <Navigate to="/login" replace />
           } 
         />
