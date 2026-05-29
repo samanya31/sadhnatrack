@@ -13,12 +13,11 @@ import {
   Clock,
   ArrowRight,
   Compass,
-  Radio,
   Lock,
   BookOpen,
   Headphones,
   Star,
-  TrendingUp
+  PlayCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -63,44 +62,10 @@ export const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [todayEntry, setTodayEntry] = useState<any>(null);
-  const [allEntries, setAllEntries] = useState<any[]>([]);
   const [userTargets, setUserTargets] = useState<any[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
-
-  // Robust streak calculation
-  const calculateStreak = (entries: any[]) => {
-    if (!entries || entries.length === 0) return 0;
-    const loggedDates = new Set(entries.map(e => e.date));
-    let streak = 0;
-    let checkDate = new Date();
-
-    const formatDateStr = (d: Date) => {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    };
-
-    let checkStr = formatDateStr(checkDate);
-    if (!loggedDates.has(checkStr)) {
-      checkDate.setDate(checkDate.getDate() - 1);
-      checkStr = formatDateStr(checkDate);
-      if (!loggedDates.has(checkStr)) return 0;
-    }
-
-    while (true) {
-      const currentStr = formatDateStr(checkDate);
-      if (loggedDates.has(currentStr)) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return streak;
-  };
 
   const fetchAllData = async (userId: string) => {
     try {
@@ -146,7 +111,6 @@ export const StudentDashboard = () => {
         .order('date', { ascending: false });
 
       const entriesList = entries || [];
-      setAllEntries(entriesList);
       const today = entriesList.find((e: any) => e.date === todayStr);
       setTodayEntry(today || null);
     } catch (err) {
@@ -180,48 +144,6 @@ export const StudentDashboard = () => {
     return () => clearInterval(interval);
   }, [BANNER_COUNT]);
 
-  const handleToggleMorningItem = async (field: 'mangal_arti' | 'tulasi_arti' | 'morning_japa' | 'morning_hearing') => {
-    if (!userProfile?.id) return;
-    const currentValue = todayEntry ? todayEntry[field] : false;
-    const newValue = !currentValue;
-
-    setTodayEntry((prev: any) => {
-      const base = prev || {
-        date: todayStr,
-        mangal_arti: false,
-        tulasi_arti: false,
-        morning_japa: false,
-        morning_hearing: false,
-        rounds_completed: 0,
-        reading_minutes: 0,
-        hearing_minutes: 0
-      };
-      return { ...base, [field]: newValue };
-    });
-
-    try {
-      const payload: any = {
-        user_id: userProfile.id,
-        date: todayStr,
-        [field]: newValue
-      };
-      if (todayEntry?.id) payload.id = todayEntry.id;
-
-      const { error } = await supabase
-        .from('sadhana_entries')
-        .upsert(payload, { onConflict: 'user_id, date' });
-      if (error) throw error;
-      await fetchAllData(userProfile.id);
-    } catch (err) {
-      console.error('Failed to sync morning item checkbox:', err);
-      setTodayEntry((prev: any) => {
-        if (!prev) return null;
-        return { ...prev, [field]: currentValue };
-      });
-      alert('Failed to update status. Please check connection.');
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
@@ -237,7 +159,6 @@ export const StudentDashboard = () => {
   }
 
   const todayRounds = todayEntry?.rounds_completed || 0;
-  const currentStreak = calculateStreak(allEntries);
 
   // Quick action cards
   const quickActions = [
@@ -247,11 +168,78 @@ export const StudentDashboard = () => {
     { title: 'Sadhna History', description: 'Review past sadhana records', icon: History, path: '/history', color: 'from-orange-500 via-amber-500 to-yellow-500', bg: 'bg-amber-50 text-amber-600' },
   ];
 
+  // Today's Sadhana sections filled status
+  const checklistItems = [
+    {
+      key: 'basic_info',
+      label: 'Basic Information',
+      desc: 'Wakeup and sleep times',
+      icon: Clock,
+      isFilled: !!(todayEntry?.wakeup_time || todayEntry?.sleep_time),
+      statusText: todayEntry?.wakeup_time || todayEntry?.sleep_time 
+        ? `Filled (Wakeup: ${todayEntry.wakeup_time || '--'} · Sleep: ${todayEntry.sleep_time || '--'})`
+        : 'Not Filled'
+    },
+    {
+      key: 'rounds_completed',
+      label: 'Japa Chanting',
+      desc: 'Daily rounds of Hare Krishna Mahamantra',
+      icon: Flame,
+      isFilled: !!(todayEntry && todayEntry.rounds_completed > 0),
+      statusText: todayEntry && todayEntry.rounds_completed > 0
+        ? `Filled (${todayEntry.rounds_completed} Rounds)`
+        : 'Not Filled'
+    },
+    {
+      key: 'reading_minutes',
+      label: 'Scripture Reading',
+      desc: 'Reading Srila Prabhupada\'s books',
+      icon: BookOpen,
+      isFilled: !!(todayEntry && todayEntry.reading_minutes > 0),
+      statusText: todayEntry && todayEntry.reading_minutes > 0
+        ? `Filled (${(todayEntry.reading_minutes / 60).toFixed(1).replace('.0', '')}h)`
+        : 'Not Filled'
+    },
+    {
+      key: 'hearing_minutes',
+      label: 'Lecture Hearing',
+      desc: 'Hearing lectures, classes, or Kirtan',
+      icon: Headphones,
+      isFilled: !!(todayEntry && todayEntry.hearing_minutes > 0),
+      statusText: todayEntry && todayEntry.hearing_minutes > 0
+        ? `Filled (${(todayEntry.hearing_minutes / 60).toFixed(1).replace('.0', '')}h)`
+        : 'Not Filled'
+    },
+    {
+      key: 'seva_minutes',
+      label: 'Devotional Seva',
+      desc: 'Practical service in BACE/Temple',
+      icon: Star,
+      isFilled: !!(todayEntry && todayEntry.seva_minutes > 0),
+      statusText: todayEntry && todayEntry.seva_minutes > 0
+        ? `Filled (${(todayEntry.seva_minutes / 60).toFixed(1).replace('.0', '')}h)`
+        : 'Not Filled'
+    },
+    {
+      key: 'morning_program',
+      label: 'Morning Program',
+      desc: 'Mangal Arti, Tulasi Arti, and morning chanting',
+      icon: Compass,
+      isFilled: !!(todayEntry && (todayEntry.mangal_arti || todayEntry.tulasi_arti || todayEntry.morning_japa || todayEntry.morning_hearing)),
+      statusText: todayEntry 
+        ? (() => {
+            const count = [todayEntry.mangal_arti, todayEntry.tulasi_arti, todayEntry.morning_japa, todayEntry.morning_hearing].filter(Boolean).length;
+            return count > 0 ? `Filled (${count}/4 Completed)` : 'Not Filled';
+          })()
+        : 'Not Filled'
+    }
+  ];
+
   return (
     <StudentLayout>
       <div className="space-y-4 w-full animate-in fade-in duration-500">
 
-        {/* 1. HERO SECTION */}
+        {/* 1. HERO SECTION (Styled exactly like UPSC Aspirant screen) */}
         <div className="relative overflow-hidden rounded-2xl shadow-xl min-h-[160px] md:min-h-[250px] flex items-center bg-slate-900">
           <picture className="absolute inset-0 z-0 w-full h-full">
             <source media="(max-width: 767px)" srcSet={studashMobImg} />
@@ -269,29 +257,23 @@ export const StudentDashboard = () => {
                 onClick={() => navigate('/targets')}
                 className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold mb-2.5 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                🎓 {userProfile?.bace?.name || 'ISKCON BACE'} Student
+                🎓 UPSC Aspirant
               </button>
               <h2 className="text-xl md:text-4xl font-black text-white mb-1 tracking-tight">
                 Welcome back, {userProfile?.full_name?.split(' ')[0] || 'Devotee'}!
               </h2>
               <p className="text-blue-100 text-sm md:text-lg max-w-xl mb-4 font-medium leading-normal">
                 You have completed <span className="font-bold text-white">{todayRounds} rounds</span> of Japa today.
-                {currentStreak > 0 && <span className="ml-2 text-amber-300 font-bold">🔥 {currentStreak}-day streak!</span>}
+                <br />
+                Keep up the momentum!
               </p>
               <div className="flex flex-wrap gap-2 justify-start">
                 <button
                   onClick={() => navigate('/log')}
                   className="px-5 py-2.5 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl font-bold hover:bg-white/30 transition-all flex items-center gap-1.5 text-sm cursor-pointer shadow-sm"
                 >
-                  <PenLine className="w-4 h-4" />
-                  Log Today's Sadhana
-                </button>
-                <button
-                  onClick={() => navigate('/targets')}
-                  className="px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-all flex items-center gap-1.5 text-sm cursor-pointer"
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  View Goals
+                  <PlayCircle className="w-4 h-4" />
+                  Resume Chanting Log
                 </button>
               </div>
             </div>
@@ -333,6 +315,20 @@ export const StudentDashboard = () => {
                 const total = goal.target_value;
                 const percent = total > 0 ? Math.min(100, Math.round((actual / total) * 100)) : 0;
 
+                // Convert minute-based metrics to hours
+                const isTimeMetric = goal.metric.includes('minutes');
+                const formatVal = (val: number) => {
+                  if (isTimeMetric) {
+                    const hrs = val / 60;
+                    return hrs % 1 === 0 ? `${hrs}h` : `${hrs.toFixed(1).replace('.0', '')}h`;
+                  }
+                  return `${val}`;
+                };
+
+                const unitLabel = isTimeMetric ? 'hours' : meta.unit || 'units';
+                const formattedActual = formatVal(actual);
+                const formattedTotal = formatVal(total);
+
                 return (
                   <div
                     key={goal.id || idx}
@@ -363,8 +359,8 @@ export const StudentDashboard = () => {
                       </h3>
                       <p className="text-slate-500 text-xs font-semibold leading-relaxed">
                         {isFallback
-                          ? `Target: ${total} ${meta.unit} · Progress: ${actual} (${percent}%)`
-                          : `Target: ${total} ${meta.unit} · Progress: ${actual} (${percent}%) · ${isActive ? 'Currently active' : 'Not active'}`
+                          ? `Target: ${formattedTotal} ${unitLabel} · Progress: ${formattedActual} (${percent}%)`
+                          : `Target: ${formattedTotal} ${unitLabel} · Progress: ${formattedActual} (${percent}%) · ${isActive ? 'Currently active' : 'Not active'}`
                         }
                       </p>
                     </div>
@@ -423,7 +419,7 @@ export const StudentDashboard = () => {
           ))}
         </div>
 
-        {/* 4. TODAY'S SADHANA CHECKLIST — full width, no notice board or streak widget */}
+        {/* 4. TODAY'S SADHANA CHECKLIST — dynamic filled/unfilled status rows */}
         <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
@@ -434,51 +430,48 @@ export const StudentDashboard = () => {
               onClick={() => navigate('/log')}
               className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-blue-100/50 hover:bg-blue-100/70"
             >
-              Log Full Form
+              LOG FULL FORM
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {[
-              { key: 'mangal_arti', label: 'Mangal Arti Program', desc: 'Attended Mangal Arti prayers at the BACE/Temple', icon: Clock, accentColor: 'amber' },
-              { key: 'tulasi_arti', label: 'Tulasi Arti Program', desc: 'Offered prayers and circumambulation to Tulasi Maharani', icon: Compass, accentColor: 'emerald' },
-              { key: 'morning_japa', label: 'Morning Japa Chanting', desc: 'Chanted Japa rounds attentively in the morning hours', icon: Flame, accentColor: 'red' },
-              { key: 'morning_hearing', label: 'Morning Lecture / Hearing', desc: 'Listened to morning Srimad Bhagavatam lecture/scriptures', icon: Radio, accentColor: 'blue' }
-            ].map((item) => {
-              const isChecked = todayEntry ? todayEntry[item.key] : false;
+            {checklistItems.map((item) => {
               const Icon = item.icon;
               return (
                 <div
                   key={item.key}
-                  onClick={() => handleToggleMorningItem(item.key as any)}
+                  onClick={() => navigate('/log')}
                   className={`border rounded-xl px-5 py-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer select-none ${
-                    isChecked
+                    item.isFilled
                       ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800'
                       : 'bg-white border-slate-150 text-slate-500 hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isChecked ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'
+                      item.isFilled ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'
                     }`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900 text-base">{item.label}</h3>
                       <p className="text-xs text-gray-400 font-medium mt-0.5">{item.desc}</p>
+                      <p className={`text-[10px] font-black uppercase mt-1 ${item.isFilled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {item.statusText}
+                      </p>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-colors flex-shrink-0 flex items-center gap-1.5 ${
-                      isChecked
-                        ? 'bg-emerald-500 text-white cursor-pointer'
-                        : 'bg-slate-100 text-slate-500 cursor-pointer border border-slate-200 hover:bg-slate-200/60'
+                      item.isFilled
+                        ? 'bg-emerald-550 text-white cursor-pointer hover:bg-emerald-600'
+                        : 'bg-slate-100 text-slate-500 cursor-pointer border border-slate-200 hover:bg-slate-250'
                     }`}
                   >
-                    {isChecked ? <CheckCircle size={13} className="stroke-[3]" /> : <Lock size={13} />}
-                    {isChecked ? 'Completed' : 'Tap to Log'}
+                    {item.isFilled ? <CheckCircle size={13} className="stroke-[3]" /> : <Lock size={13} />}
+                    {item.isFilled ? 'Filled' : 'Tap to Log'}
                   </button>
                 </div>
               );
