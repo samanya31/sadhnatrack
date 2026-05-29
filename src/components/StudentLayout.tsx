@@ -156,7 +156,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
         </aside>
 
         <main className="flex-1 overflow-y-auto bg-[#F9FAFB]">
-          <div className="max-w-[1400px] mx-auto px-2 sm:px-4 lg:px-6 py-6 lg:py-8 min-h-full flex flex-col">
+          <div className="max-w-[1400px] mx-auto px-0 sm:px-2 py-4 lg:py-6 min-h-full flex flex-col">
             <div className="flex-1">
               {children}
             </div>
