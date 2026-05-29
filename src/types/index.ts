@@ -51,3 +51,28 @@ export interface SadhanaEntry {
     email: string;
   };
 }
+
+export type TargetPeriodType = 'weekly' | 'monthly' | 'custom';
+export type TargetMetricType = 
+  | 'reading_minutes' 
+  | 'hearing_minutes' 
+  | 'rounds_completed' 
+  | 'seva_minutes' 
+  | 'exercise_minutes' 
+  | 'custom_milestone';
+
+export interface SadhanaTarget {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  period_type: TargetPeriodType;
+  metric: TargetMetricType;
+  target_value: number;
+  current_progress: number;
+  start_date: string;
+  end_date: string;
+  is_completed: boolean;
+  created_at: string;
+}
+

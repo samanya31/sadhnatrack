@@ -165,3 +165,44 @@ CREATE TRIGGER on_auth_user_created
 
 -- Initial Setup: Promote existing admin to Super Admin
 -- UPDATE public.profiles SET role = 'super_admin' WHERE email = 'sadhnastaff@gmail.com';
+
+-- 10. Create the sadhana_targets table
+CREATE TABLE IF NOT EXISTS public.sadhana_targets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  period_type TEXT NOT NULL CHECK (period_type IN ('weekly', 'monthly', 'custom')),
+  metric TEXT NOT NULL CHECK (metric IN ('reading_minutes', 'hearing_minutes', 'rounds_completed', 'seva_minutes', 'exercise_minutes', 'custom_milestone')),
+  target_value NUMERIC NOT NULL,
+  current_progress NUMERIC DEFAULT 0 NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  is_completed BOOLEAN DEFAULT false NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  CONSTRAINT valid_date_range CHECK (start_date <= end_date)
+);
+
+-- Enable RLS
+ALTER TABLE public.sadhana_targets ENABLE ROW LEVEL SECURITY;
+
+-- Policies for sadhana_targets
+DROP POLICY IF EXISTS "Students can manage own targets" ON public.sadhana_targets;
+CREATE POLICY "Students can manage own targets" ON public.sadhana_targets
+  FOR ALL USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Super admins see all targets" ON public.sadhana_targets;
+CREATE POLICY "Super admins see all targets" ON public.sadhana_targets
+  FOR SELECT USING ( public.is_super_admin() );
+
+DROP POLICY IF EXISTS "BACE admins see targets in their BACE" ON public.sadhana_targets;
+CREATE POLICY "BACE admins see targets in their BACE" ON public.sadhana_targets
+  FOR SELECT USING (
+    public.get_my_role() = 'admin' 
+    AND EXISTS (
+      SELECT 1 FROM public.profiles student_p 
+      WHERE student_p.id = sadhana_targets.user_id 
+      AND student_p.bace_id = public.get_my_bace()
+    )
+  );
+
