@@ -57,6 +57,8 @@ export const TargetWelcomeModal: React.FC<TargetWelcomeModalProps> = ({
     } else if (isRightSwipe && currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     }
+    setTouchStart(null);
+    setTouchEnd(null);
   };
 
   const nextCard = () => {
@@ -177,7 +179,7 @@ export const TargetWelcomeModal: React.FC<TargetWelcomeModalProps> = ({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        className="relative w-full max-w-[400px] bg-white rounded-[3rem] shadow-2xl border border-slate-100/50 p-6 sm:p-8 flex flex-col items-center justify-between text-center overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-300"
+        className="relative w-full max-w-[400px] max-h-[92vh] overflow-y-auto bg-white rounded-[3rem] shadow-2xl border border-slate-100/50 p-6 sm:p-8 flex flex-col items-center justify-between text-center z-10 animate-in fade-in zoom-in-95 duration-300"
       >
         {/* Floating Confetti effect for completed targets */}
         {percent >= 100 && (

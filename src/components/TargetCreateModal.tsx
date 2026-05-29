@@ -99,7 +99,7 @@ export const TargetCreateModal: React.FC<TargetCreateModalProps> = ({ isOpen, on
       <div className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal Container */}
-      <div className="relative w-full max-w-[500px] bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl overflow-hidden p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-[500px] max-h-[92vh] overflow-y-auto bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
