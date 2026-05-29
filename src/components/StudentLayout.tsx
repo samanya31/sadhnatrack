@@ -35,6 +35,8 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
+  const isDashboard = location.pathname === '/dashboard';
+
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Home, description: 'Sadhana overview' },
     { name: 'Today\'s Entry', path: '/log', icon: PenLine, description: 'Log daily progress' },
@@ -156,7 +158,13 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
         </aside>
 
         <main className="flex-1 overflow-y-auto bg-[#F9FAFB]">
-          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 lg:py-8 min-h-full flex flex-col">
+          <div
+            className={
+              isDashboard
+                ? 'w-full px-4 sm:px-5 lg:px-5 py-6 lg:py-8 min-h-full flex flex-col'
+                : 'max-w-[1400px] mx-auto w-full px-4 sm:px-6 py-6 lg:py-8 min-h-full flex flex-col'
+            }
+          >
             <div className="flex-1">
               {children}
             </div>

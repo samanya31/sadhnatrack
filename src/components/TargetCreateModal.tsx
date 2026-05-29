@@ -51,6 +51,7 @@ export const TargetCreateModal: React.FC<TargetCreateModalProps> = ({ isOpen, on
     } else if (metric === 'exercise_minutes') {
       setTitle(`Exercise ${targetDisplayVal} Hours`);
     } else if (metric === 'custom_milestone') {
+      setTargetDisplayVal(1);
       setTitle('Learn mantra: ');
     }
   }, [metric, periodType, targetDisplayVal]);
@@ -63,7 +64,12 @@ export const TargetCreateModal: React.FC<TargetCreateModalProps> = ({ isOpen, on
     try {
       // Convert hours to minutes for the database if it's a minutes-based metric
       const isMinutesMetric = ['reading_minutes', 'hearing_minutes', 'seva_minutes', 'exercise_minutes'].includes(metric);
-      const targetDbValue = isMinutesMetric ? targetDisplayVal * 60 : targetDisplayVal;
+      const targetDbValue =
+        metric === 'custom_milestone'
+          ? 1
+          : isMinutesMetric
+            ? targetDisplayVal * 60
+            : targetDisplayVal;
 
       await onSave({
         title,

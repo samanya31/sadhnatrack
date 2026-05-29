@@ -1,4 +1,5 @@
 export type UserRole = 'student' | 'admin' | 'super_admin';
+export type UserGender = 'male' | 'female' | 'other';
 
 export interface BACE {
   id: string;
@@ -13,6 +14,7 @@ export interface UserProfile {
   full_name: string;
   role: UserRole;
   bace_id?: string;
+  gender?: UserGender | null;
   created_at: string;
   bace?: BACE;
 }
@@ -45,6 +47,7 @@ export interface SadhanaEntry {
   morning_japa: boolean;
   morning_hearing: boolean;
   morning_comment?: string;
+  status?: 'draft' | 'submitted';
   created_at: string;
   user?: {
     full_name: string;

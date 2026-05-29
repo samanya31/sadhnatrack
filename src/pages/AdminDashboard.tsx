@@ -60,7 +60,14 @@ export const AdminDashboard = () => {
   const [filterDate, setFilterDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [regData, setRegData] = useState({ email: '', password: '', fullName: '', baceId: '', role: 'student' });
+  const [regData, setRegData] = useState({
+    email: '',
+    password: '',
+    fullName: '',
+    baceId: '',
+    role: 'student',
+    gender: '' as '' | 'male' | 'female' | 'other',
+  });
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
 
@@ -148,22 +155,40 @@ export const AdminDashboard = () => {
     setRegLoading(true);
     setRegError(null);
 
+    const role = regData.role || 'student';
+    const baceId =
+      userProfile?.role === 'super_admin' ? regData.baceId : userProfile?.bace_id || regData.baceId;
+
+    if (role === 'student' && !regData.gender) {
+      setRegError('Please select gender for the student.');
+      setRegLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signUp({
         email: regData.email,
         password: regData.password,
         options: {
-          data: { 
+          data: {
             full_name: regData.fullName,
-            role: (regData as any).role || 'student',
-            bace_id: regData.baceId
-          }
-        }
+            role,
+            bace_id: baceId,
+            ...(role === 'student' ? { gender: regData.gender } : {}),
+          },
+        },
       });
       if (error) throw error;
-      alert('Student registered!');
+      alert(role === 'admin' ? 'BACE admin registered!' : 'Student registered!');
       setIsModalOpen(false);
-      setRegData({ email: '', password: '', fullName: '', baceId: userProfile?.role === 'super_admin' ? '' : userProfile?.bace_id || '', role: 'student' });
+      setRegData({
+        email: '',
+        password: '',
+        fullName: '',
+        baceId: userProfile?.role === 'super_admin' ? '' : userProfile?.bace_id || '',
+        role: 'student',
+        gender: '',
+      });
       fetchProfiles();
     } catch (err: any) {
       setRegError(err.message);
@@ -717,6 +742,11 @@ export const AdminDashboard = () => {
                     <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-100 rounded-[1.5rem] flex items-center justify-center font-black text-2xl md:text-3xl text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all">{profile.full_name?.charAt(0)}</div>
                     <div>
                       <p className="font-black text-slate-900 text-lg md:text-xl tracking-tight">{profile.full_name}</p>
+                      {profile.gender && (
+                        <p className="text-[10px] font-black text-primary-600 uppercase tracking-widest mt-1 capitalize">
+                          {profile.gender}
+                        </p>
+                      )}
                       <p className="text-xs font-bold text-slate-400 mt-1 truncate max-w-[200px]">{profile.email}</p>
                     </div>
                   </button>
@@ -765,6 +795,27 @@ export const AdminDashboard = () => {
                 </div>
               )}
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Full Name</label><input type="text" required value={regData.fullName} onChange={(e) => setRegData({ ...regData, fullName: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
+              {regData.role === 'student' && (
+                <div>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Gender</label>
+                  <select
+                    required
+                    value={regData.gender}
+                    onChange={(e) =>
+                      setRegData({
+                        ...regData,
+                        gender: e.target.value as 'male' | 'female' | 'other',
+                      })
+                    }
+                    className="input-field h-12 md:h-14 rounded-xl w-full bg-slate-50 border-none px-4 font-bold text-slate-700 capitalize"
+                  >
+                    <option value="">Select gender...</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              )}
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Address</label><input type="email" required value={regData.email} onChange={(e) => setRegData({ ...regData, email: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Password</label><input type="password" required value={regData.password} onChange={(e) => setRegData({ ...regData, password: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               

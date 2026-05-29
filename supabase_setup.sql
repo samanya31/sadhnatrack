@@ -22,6 +22,11 @@ BEGIN
     ALTER TABLE public.profiles ADD COLUMN bace_id UUID REFERENCES public.baces(id) ON DELETE SET NULL;
   END IF;
 
+  -- Add gender if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'gender') THEN
+    ALTER TABLE public.profiles ADD COLUMN gender TEXT CHECK (gender IN ('male', 'female', 'other'));
+  END IF;
+
   -- Update role check constraint if needed
   ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
   ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('student', 'admin', 'super_admin'));
@@ -34,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   role TEXT DEFAULT 'student' CHECK (role IN ('student', 'admin', 'super_admin')),
   bace_id UUID REFERENCES public.baces(id) ON DELETE SET NULL,
+  gender TEXT CHECK (gender IN ('male', 'female', 'other')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -146,13 +152,14 @@ CREATE POLICY "BACE admins see logs in their BACE" ON public.sadhana_entries
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, role, bace_id)
+  INSERT INTO public.profiles (id, email, full_name, role, bace_id, gender)
   VALUES (
     new.id, 
     new.email, 
     COALESCE(new.raw_user_meta_data->>'full_name', 'Student'), 
     COALESCE(new.raw_user_meta_data->>'role', 'student'),
-    (new.raw_user_meta_data->>'bace_id')::uuid
+    (new.raw_user_meta_data->>'bace_id')::uuid,
+    NULLIF(new.raw_user_meta_data->>'gender', '')
   );
   RETURN new;
 END;
