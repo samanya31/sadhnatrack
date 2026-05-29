@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
 import { supabase } from '../lib/supabase';
 import {
@@ -8,86 +8,22 @@ import {
   BarChart3,
   Flame,
   Calendar,
-  ChevronLeft,
   ChevronRight,
-  Sparkles,
   CheckCircle,
   AlertTriangle,
   Info,
+  Clock,
   ArrowRight,
-  TrendingUp,
   Award,
-  BookOpenCheck,
-  Compass
+  Compass,
+  Bell,
+  Radio,
+  Lock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import studashImg from '../assets/studash.png';
 import studashMobImg from '../assets/studash_mob.png';
-
-// Circular Progress Dial Component
-const ProgressDial = ({
-  value,
-  target,
-  title,
-  subtitle,
-  icon: Icon,
-  colorClass,
-  strokeColor,
-  formatValue
-}: {
-  value: number;
-  target: number;
-  title: string;
-  subtitle: string;
-  icon: any;
-  colorClass: string;
-  strokeColor: string;
-  formatValue: (v: number, t: number) => string;
-}) => {
-  const percentage = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200/50 flex flex-col items-center justify-between text-center min-h-[260px] relative overflow-hidden group hover:shadow-md transition-all duration-300">
-      <div className="flex flex-col items-center gap-1 z-10 w-full">
-        <div className={`p-3 rounded-2xl ${colorClass} bg-opacity-10 text-opacity-100 flex items-center justify-center mb-2`}>
-          <Icon size={20} className="stroke-[2.5]" />
-        </div>
-        <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">{title}</h3>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">{subtitle}</p>
-      </div>
-
-      <div className="relative my-4 flex items-center justify-center">
-        <svg className="w-32 h-32 transform -rotate-90">
-          <circle cx="64" cy="64" r={radius} className="stroke-slate-100 fill-none stroke-[8]" />
-          <circle
-            cx="64"
-            cy="64"
-            r={radius}
-            className="fill-none stroke-[8] transition-all duration-1000 ease-out"
-            style={{
-              stroke: strokeColor,
-              strokeDasharray: circumference,
-              strokeDashoffset: strokeDashoffset,
-            }}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
-          <span className="text-base font-black text-slate-800 leading-none">{formatValue(value, target)}</span>
-          <span className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{percentage}%</span>
-        </div>
-      </div>
-
-      <div className="text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-xl uppercase tracking-widest z-10">
-        Goal: {target}
-      </div>
-    </div>
-  );
-};
 
 export const StudentDashboard = () => {
   const navigate = useNavigate();
@@ -97,29 +33,30 @@ export const StudentDashboard = () => {
   const [allEntries, setAllEntries] = useState<any[]>([]);
   const [userTargets, setUserTargets] = useState<any[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [activeStatIndex, setActiveStatIndex] = useState(0);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   // Hardcoded premium banners for Ekadashi, Temple events, and Quotes
-  const banners = [
+  const banners = useMemo(() => [
     {
       id: 1,
       title: "Ekadashi Mahadvadashi Alert 🌌",
       description: "Prepare for the upcoming Ekadashi. Plan extra rounds of chanting, reading, and pure fasting from grains to refresh your spirit.",
       badge: "Spiritual Event",
-      bgClass: "from-indigo-950 via-purple-900 to-indigo-900 text-white",
+      bgClass: "from-indigo-950 via-purple-900 to-indigo-900",
       badgeClass: "bg-purple-500/30 text-purple-200 border-purple-400/30",
       cta: "Schedule Extra Rounds",
       action: () => navigate('/targets')
     },
     {
       id: 2,
-      title: "Weekly Sangha & saturday Feast 🛕",
+      title: "Weekly Sangha & Saturday Feast 🛕",
       description: "Join fellow devotees this Saturday at 6:30 PM for ecstatic congregational Kirtan, a deep discourse, and delicious Mahaprasadam.",
       badge: "Temple Program",
-      bgClass: "from-amber-950 via-orange-900 to-rose-900 text-white",
+      bgClass: "from-amber-950 via-orange-900 to-rose-900",
       badgeClass: "bg-orange-500/30 text-orange-200 border-orange-400/30",
-      cta: "Log Sadhana Log",
+      cta: "Log Sadhana progress",
       action: () => navigate('/log')
     },
     {
@@ -127,20 +64,12 @@ export const StudentDashboard = () => {
       title: "Prabhupada Vani Inspiration 📖",
       description: "\"By chanting the Hare Krishna mantra, one's heart is cleansed of all dirty things, and one is immediately elevated to the spiritual platform.\"",
       badge: "Daily Quote",
-      bgClass: "from-emerald-950 via-teal-900 to-emerald-900 text-white",
+      bgClass: "from-emerald-950 via-teal-900 to-emerald-900",
       badgeClass: "bg-emerald-500/30 text-emerald-200 border-emerald-400/30",
       cta: "Read Books Today",
       action: () => navigate('/log')
     }
-  ];
-
-  // Auto rotate banners every 6 seconds
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [banners.length]);
+  ], [navigate]);
 
   // Robust streak calculation
   const calculateStreak = (entries: any[]) => {
@@ -244,6 +173,15 @@ export const StudentDashboard = () => {
     initializeDashboard();
   }, [navigate]);
 
+  // Sync timers
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [banners.length]);
+
   // Handle optimistic checkbox toggles for the Morning program from the dashboard!
   const handleToggleMorningItem = async (field: 'mangal_arti' | 'tulasi_arti' | 'morning_japa' | 'morning_hearing') => {
     if (!userProfile?.id) return;
@@ -337,383 +275,434 @@ export const StudentDashboard = () => {
   const leftReadingMinutes = Math.max(0, readingGoalValue - actualReadingMinutes);
   const leftReadingHours = (leftReadingMinutes / 60).toFixed(1);
 
-  // Quick Action Buttons
-  const quickActions = [
+  // Rotating Stats Configuration exactly like the reference
+  const statsRecords = [
     {
-      name: "Log Today's Entry",
-      description: "Log rounds, reading, hearing & seva",
-      icon: PenLine,
-      color: "from-emerald-500 to-teal-600 shadow-emerald-200",
-      path: "/log"
+      label: 'Daily Japa Progress',
+      value: Math.min(100, Math.round((todayRounds / dailyJapaTarget) * 100)),
+      displayVal: `${todayRounds} Rnds`,
+      color: 'text-indigo-650',
+      text: todayRounds >= dailyJapaTarget ? 'Incredible chanting! You met your target! 🙏' : `Chanted ${todayRounds} of ${dailyJapaTarget} rounds. Keep it up.`,
+      btnText: 'Log Extra Rounds',
+      action: () => navigate('/log')
     },
     {
-      name: "Spiritual Targets",
-      description: "Set custom reading and chanting goals",
-      icon: Target,
-      color: "from-rose-500 to-orange-500 shadow-rose-200",
-      path: "/targets"
+      label: 'Weekly Sadhana Streak',
+      value: Math.min(100, Math.round((currentStreak / streakGoal) * 100)),
+      displayVal: `🔥 ${currentStreak}d`,
+      color: 'text-rose-650',
+      text: currentStreak >= streakGoal ? 'Weekly logging streak accomplished! Sincere devotee! ✨' : `Chanted and logged for ${currentStreak} days consecutively.`,
+      btnText: 'Set New Targets',
+      action: () => navigate('/targets')
     },
     {
-      name: "Analytical Reports",
-      description: "View progress charts and logs summary",
-      icon: BarChart3,
-      color: "from-blue-500 to-indigo-600 shadow-blue-200",
-      path: "/reports"
-    },
-    {
-      name: "Sadhana History",
-      description: "View, review, and search past logs",
-      icon: History,
-      color: "from-amber-500 to-yellow-600 shadow-amber-250",
-      path: "/history"
+      label: 'Monthly Reading Progress',
+      value: Math.min(100, Math.round((actualReadingMinutes / readingGoalValue) * 100)),
+      displayVal: `${leftReadingHours}h left`,
+      color: 'text-emerald-650',
+      text: `You have left ${leftReadingHours} hours of reading for this month. Keep up the focus!`,
+      btnText: 'Analyze Analytical Reports',
+      action: () => navigate('/reports')
     }
   ];
 
-  // Hardcoded Notice Board Announcements with premium style treatments
+  // Auto rotate stats widget every 5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveStatIndex(prev => (prev + 1) % statsRecords.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [statsRecords.length]);
+
+  // Notice board data styled exactly like the reference notices
   const notices = [
     {
       id: 1,
-      type: "info",
       title: "Collective Morning Japa Session",
       content: "Join daily Japa session at 5:00 AM in the BACE Temple Hall. Elevate your morning consciousness together.",
       icon: Info,
-      badge: "BACE Schedule",
-      borderClass: "border-blue-100 bg-blue-50/30 text-blue-800",
-      iconClass: "bg-blue-100 text-blue-600",
-      badgeClass: "bg-blue-100/60 text-blue-700"
+      dateStr: "TODAY • 05:00 AM",
+      iconColor: "text-blue-500",
+      iconBg: "bg-blue-50"
     },
     {
       id: 2,
-      type: "warning",
       title: "Complete Your Weekly Draft Submissions",
-      content: "Ensure all draft logs for the last week are completed and 'Final Submitted'. Reports are scheduled to compile on Sunday.",
+      content: "Ensure all draft logs for the last week are completed and 'Final Submitted'. Reports compile on Sunday.",
       icon: AlertTriangle,
-      badge: "Urgent Reminder",
-      borderClass: "border-amber-100 bg-amber-50/30 text-amber-800",
-      iconClass: "bg-amber-100 text-amber-600",
-      badgeClass: "bg-amber-100/60 text-amber-700"
+      dateStr: "URGENT • REMINDER",
+      iconColor: "text-amber-500",
+      iconBg: "bg-amber-50"
     },
     {
       id: 3,
-      type: "success",
       title: "Outstanding Chanting Performance",
-      content: "Amazing collective effort! Our BACE community members crossed a total of 1,200 rounds chanting this week! Let's keep it up! 🎉",
+      content: "Amazing collective effort! Our BACE community members crossed a total of 1,200 rounds chanting this week! 🎉",
       icon: Award,
-      badge: "Community Milestone",
-      borderClass: "border-emerald-100 bg-emerald-50/30 text-emerald-800",
-      iconClass: "bg-emerald-100 text-emerald-600",
-      badgeClass: "bg-emerald-100/60 text-emerald-700"
+      dateStr: "MILESTONE • EVENT",
+      iconColor: "text-emerald-500",
+      iconBg: "bg-emerald-50"
+    }
+  ];
+
+  // Exactly matching the 4 grid quick-action buttons under the Hero
+  const quickActions = [
+    {
+      title: 'Sadhna Entry',
+      description: 'Log your daily progress',
+      icon: PenLine,
+      path: '/log',
+      color: 'from-blue-600 via-indigo-600 to-violet-600',
+      bg: 'bg-blue-50 text-blue-600'
+    },
+    {
+      title: 'Goal Setting',
+      description: 'Set custom targets',
+      icon: Target,
+      path: '/targets',
+      color: 'from-rose-500 via-red-650 to-orange-600',
+      bg: 'bg-red-50 text-red-650'
+    },
+    {
+      title: 'Analytical Report',
+      description: 'View detailed analysis',
+      icon: BarChart3,
+      path: '/reports',
+      color: 'from-emerald-500 via-teal-605 to-cyan-600',
+      bg: 'bg-emerald-50 text-emerald-650'
+    },
+    {
+      title: 'Sadhna History',
+      description: 'Review past sadhana records',
+      icon: History,
+      path: '/history',
+      color: 'from-orange-500 via-amber-605 to-yellow-600',
+      bg: 'bg-amber-50 text-amber-650'
     }
   ];
 
   return (
     <StudentLayout>
-      <div className="max-w-[1200px] mx-auto px-1 sm:px-0 mb-10 animate-in fade-in duration-500">
+      <div className="space-y-5 w-full animate-in fade-in duration-500">
+      
+      {/* 1. HERO SECTION (Exactly styled as requested) */}
+      <div className="relative overflow-hidden rounded-2xl shadow-xl min-h-[160px] md:min-h-[260px] flex items-center bg-slate-900 group">
+        {/* Mobile background (< md) */}
+        <div
+          className="absolute inset-0 z-0 block md:hidden"
+          style={{
+            backgroundImage: `url(${studashMobImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {/* Desktop / tablet background (md+) */}
+        <div
+          className="absolute inset-0 z-0 hidden md:block"
+          style={{
+            backgroundImage: `url(${studashImg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
         
-        {/* 1. HERO BANNER CARD */}
-        <div className="relative rounded-[2.5rem] overflow-hidden shadow-xl border border-slate-200/50 min-h-[220px] md:min-h-[280px] flex items-center p-6 md:p-12 mb-8 group">
-          {/* Desktop Background */}
-          <img 
-            src={studashImg} 
-            alt="Dashboard" 
-            className="absolute inset-0 w-full h-full object-cover hidden md:block group-hover:scale-102 transition-transform duration-700 ease-out" 
-          />
-          {/* Mobile Background */}
-          <img 
-            src={studashMobImg} 
-            alt="Dashboard Mobile" 
-            className="absolute inset-0 w-full h-full object-cover md:hidden group-hover:scale-102 transition-transform duration-700 ease-out" 
-          />
-          
-          {/* Dark overlay for rich contrast */}
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/60 to-transparent"></div>
-          
-          <div className="relative z-10 max-w-xl text-white">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="bg-primary-500/30 text-primary-200 border border-primary-400/30 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-lg">
-                {userProfile?.bace?.name || 'BACE Devotee'}
-              </span>
-              <span className="bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-lg flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                Active
-              </span>
+        {/* Sleek shadow gradient for readability */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-900/60 to-transparent"></div>
+
+        {/* Content Overlay */}
+        <div className="relative z-10 w-full px-5 md:px-10 py-6 md:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex-1 text-left">
+            <button
+              onClick={() => navigate('/targets')}
+              className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold mb-2.5 hover:bg-white/20 transition-colors cursor-pointer"
+            >
+              🎓 {userProfile?.bace?.name || 'ISKCON BACE'} Student
+            </button>
+            <h2 className="text-xl md:text-4xl font-black text-white mb-1 tracking-tight">
+              Welcome back, {userProfile?.full_name?.split(' ')[0] || 'Devotee'}!
+            </h2>
+            <p className="text-blue-100 text-sm md:text-lg max-w-xl mb-4 font-medium leading-normal">
+              You have completed <span className="font-bold text-white">{todayRounds} rounds</span> of Japa today.
+              <br className="md:hidden" />
+              Keep up the momentum!
+            </p>
+
+            <div className="flex flex-wrap gap-2 justify-start">
+              <button
+                onClick={() => navigate('/log')}
+                className="px-5 py-2.5 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl font-bold hover:bg-white/30 transition-all flex items-center gap-1.5 text-sm cursor-pointer shadow-sm"
+              >
+                <PenLine className="w-4 h-4 sm:w-5 sm:h-5" />
+                Resume Chanting Log
+              </button>
             </div>
-            
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight leading-tight mb-2">
-              Hare Krishna, {userProfile?.full_name || 'Student'}! 🙏
-            </h1>
-            <p className="text-slate-200 text-xs md:text-sm font-bold uppercase tracking-wider mb-4 opacity-90">
-              Welcome back to your spiritual dashboard
+          </div>
+        </div>
+      </div>
+
+      {/* 2. DYNAMIC CAROUSEL BANNERS (Sliding, auto-rotating) */}
+      <div className="bg-white rounded-2xl p-2 shadow-sm border border-slate-100">
+        <div className="relative rounded-xl overflow-hidden group w-full h-[180px] sm:h-[150px]">
+          <div
+            className="flex transition-transform duration-500 h-full w-full"
+            style={{ transform: `translateX(-${currentBannerIndex * 100}%)` }}
+          >
+            {banners.map((banner) => (
+              <div key={banner.id} className={`min-w-full h-full p-5 flex flex-col justify-between relative bg-gradient-to-br ${banner.bgClass} text-white`}>
+                <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl pointer-events-none select-none"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${banner.badgeClass}`}>
+                      {banner.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-sm sm:text-base font-black tracking-tight leading-snug mb-1">{banner.title}</h3>
+                  <p className="text-white/80 text-xs font-semibold leading-relaxed line-clamp-2">{banner.description}</p>
+                </div>
+                <div className="relative z-10 flex items-center justify-between mt-2 border-t border-white/10 pt-2">
+                  <button onClick={banner.action} className="bg-white text-slate-900 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5 group/btn cursor-pointer">
+                    {banner.cta}
+                    <ArrowRight size={12} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                  </button>
+                  <div className="flex gap-1">
+                    {banners.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentBannerIndex(idx)}
+                        className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                          idx === currentBannerIndex ? 'bg-white w-3' : 'bg-white/40'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. FOUR QUICK ACTIONS GRID (Identical design style to mockup) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        {quickActions.map((action) => (
+          <button
+            key={action.title}
+            onClick={() => navigate(action.path)}
+            className="group relative bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-4 md:p-6 shadow-sm border border-slate-100 hover:shadow-xl transition-all duration-300 text-left overflow-hidden flex flex-col cursor-pointer"
+          >
+            <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${action.color} opacity-10 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`} />
+
+            <div className="flex flex-row items-center gap-2.5 mb-2 md:mb-4">
+              <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0`}>
+                <action.icon className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm sm:text-base font-black text-slate-800 leading-tight group-hover:text-blue-700 transition-colors">
+                {action.title}
+              </h3>
+            </div>
+
+            <p className="hidden sm:block text-xs text-slate-400 font-semibold mb-4 flex-1">
+              {action.description}
             </p>
-            <p className="text-slate-350 text-xs md:text-sm font-medium leading-relaxed max-w-md hidden sm:block">
-              "By chanting the Hare Krishna Maha Mantra, our hearts are cleansed, our habits are refined, and we find true spiritual peace."
-            </p>
+
+            <div className="flex items-center text-[10px] sm:text-xs font-black uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors mt-auto">
+              Access Now <ChevronRight className="w-3.5 h-3.5 ml-1 stroke-[3]" />
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* 4. SPLIT LAYOUT SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+        
+        {/* Main Content - Left (2 Columns) */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Today's Schedule Card */}
+          <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-650" />
+                <h3 className="font-bold text-lg text-slate-800 tracking-tight">Today's Sadhana Checklist</h3>
+              </div>
+              <button
+                onClick={() => navigate('/log')}
+                className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-blue-100/50 hover:bg-blue-100/70"
+              >
+                Log Full Form
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { key: 'mangal_arti', label: 'Mangal Arti Program', desc: 'Attended Mangal Arti prayers at the BACE/Temple', icon: Clock, color: 'text-amber-500 border-amber-200' },
+                { key: 'tulasi_arti', label: 'Tulasi Arti Program', desc: 'Offered prayers and circumambulation to Tulasi Maharani', icon: Compass, color: 'text-emerald-500 border-emerald-200' },
+                { key: 'morning_japa', label: 'Morning Japa Chanting', desc: 'Chanted Japa rounds attentively in the morning hours', icon: Flame, color: 'text-red-500 border-red-200' },
+                { key: 'morning_hearing', label: 'Morning Lecture / Hearing', desc: 'Listened to morning Srimad Bhagavatam lecture/scriptures', icon: Radio, color: 'text-blue-500 border-blue-200' }
+              ].map((item) => {
+                const isChecked = todayEntry ? todayEntry[item.key] : false;
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() => handleToggleMorningItem(item.key as any)}
+                    className={`border rounded-xl px-5 py-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer select-none ${
+                      isChecked
+                        ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800'
+                        : 'bg-white border-slate-150 text-slate-500 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isChecked ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'
+                      }`}>
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 text-base">{item.label}</h3>
+                        <p className="text-xs text-gray-400 font-medium mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      className={`px-4 py-1.5 rounded-xl font-bold text-xs transition-colors flex-shrink-0 flex items-center gap-1.5 ${
+                        isChecked
+                          ? 'bg-emerald-500 text-white cursor-pointer'
+                          : 'bg-slate-100 text-slate-500 cursor-pointer border border-slate-200 hover:bg-slate-200/60'
+                      }`}
+                    >
+                      {isChecked ? <CheckCircle size={13} className="stroke-[3]" /> : <Lock size={13} />}
+                      {isChecked ? 'Completed' : 'Tap to Log'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* 2. PROGRESS DIALS GRID */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        {/* Sidebar - Right (1 Column) */}
+        <div className="space-y-6">
           
-          {/* Japa Progress Circle */}
-          <ProgressDial
-            value={todayRounds}
-            target={dailyJapaTarget}
-            title="Daily Japa"
-            subtitle="Rounds Chanted Today"
-            icon={Flame}
-            colorClass="bg-orange-500 text-orange-600"
-            strokeColor="#EA580C"
-            formatValue={(v) => `${v} Rnds`}
-          />
-
-          {/* Logging Streak Progress Circle */}
-          <ProgressDial
-            value={currentStreak}
-            target={streakGoal}
-            title="Weekly Streak"
-            subtitle="Consecutive Logged Days"
-            icon={Sparkles}
-            colorClass="bg-red-500 text-red-650"
-            strokeColor="#DC2626"
-            formatValue={(v) => `🔥 ${v} Days`}
-          />
-
-          {/* Reading Target Progress Circle (Fulfills exact User Request for hours remaining) */}
-          <ProgressDial
-            value={actualReadingMinutes}
-            target={readingGoalValue}
-            title="Monthly Reading"
-            subtitle="Reading Goal Progress"
-            icon={BookOpenCheck}
-            colorClass="bg-blue-500 text-blue-650"
-            strokeColor="#2563EB"
-            formatValue={() => `${leftReadingHours}h left`}
-          />
-
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mb-10">
-          
-          {/* LEFT & CENTER PORTIONS (2 columns wide on large screen) */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* Notice Board Card */}
+          <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 mb-5">
+              <Bell className="w-5 h-5 text-orange-500" />
+              <h3 className="font-bold text-slate-800 tracking-tight">Notice Board</h3>
+            </div>
             
-            {/* 3. AUTO ROTATING ANNOUNCEMENT CAROUSEL */}
-            <div className="relative rounded-[2rem] overflow-hidden shadow-md border border-slate-200/50 p-6 md:p-8 min-h-[180px] flex flex-col justify-between transition-all duration-500">
-              {/* Dynamic sliding gradient bg based on active banner */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${banners[currentBannerIndex].bgClass} opacity-95 transition-all duration-700 ease-in-out`}></div>
-              
-              {/* Dynamic decorative backdrop circles */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-xl pointer-events-none select-none"></div>
-              
-              <div className="relative z-10 w-full flex-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${banners[currentBannerIndex].badgeClass}`}>
-                      {banners[currentBannerIndex].badge}
-                    </span>
-                    <div className="flex gap-1">
-                      {banners.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentBannerIndex(idx)}
-                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                            idx === currentBannerIndex ? 'bg-white w-4' : 'bg-white/40 hover:bg-white/60'
-                          }`}
-                        />
-                      ))}
+            <div className="space-y-4">
+              {notices.map((notice, i) => {
+                const Icon = notice.icon;
+                return (
+                  <div key={i} className="pb-4 border-b border-slate-100 last:border-0 last:pb-0 flex gap-3 group">
+                    <div className={`w-10 h-10 rounded-xl ${notice.iconBg} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>
+                      <Icon className={`w-5 h-5 ${notice.iconColor}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[10px] font-bold text-slate-400">
+                          {notice.dateStr}
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-slate-800 leading-tight group-hover:text-blue-650 transition-colors cursor-pointer mb-1 line-clamp-1">
+                        {notice.title}
+                      </p>
+                      <p className="text-[11px] text-slate-500 font-semibold leading-relaxed line-clamp-2 italic">
+                        {notice.content}
+                      </p>
                     </div>
                   </div>
-                  
-                  <h2 className="text-lg md:text-xl font-black text-white tracking-tight leading-snug mb-2 animate-in fade-in duration-300">
-                    {banners[currentBannerIndex].title}
-                  </h2>
-                  <p className="text-white/80 text-xs md:text-sm font-medium leading-relaxed mb-6 animate-in fade-in duration-300 max-w-2xl">
-                    {banners[currentBannerIndex].description}
-                  </p>
-                </div>
+                );
+              })}
+            </div>
+          </div>
 
-                <div className="flex items-center justify-between mt-auto">
-                  <button
-                    onClick={banners[currentBannerIndex].action}
-                    className="bg-white text-slate-900 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-md hover:bg-slate-50 transition-colors flex items-center gap-2 group/btn cursor-pointer"
-                  >
-                    {banners[currentBannerIndex].cta}
-                    <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
-                  </button>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length)}
-                      className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button
-                      onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % banners.length)}
-                      className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors border border-white/5 cursor-pointer"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                </div>
+          {/* Rotating Progress Widget (Styled exactly as reference with dots and CTA) */}
+          <div
+            className="bg-gradient-to-br from-white to-slate-50/50 rounded-2xl p-5 md:p-6 text-center shadow-xl border border-slate-100 transition-all duration-700 min-h-[220px] md:min-h-[280px] flex flex-col justify-center relative overflow-hidden group"
+          >
+            {/* Soft backdrop radial light reflection */}
+            <div
+              className={`${statsRecords[activeStatIndex].color.replace('text-', 'bg-')}/5 absolute top-0 right-0 w-48 h-48 rounded-full -mr-24 -mt-24 blur-3xl`}
+            />
+
+            <div className="mb-5 md:mb-6 relative inline-flex items-center justify-center mx-auto select-none">
+              {/* SVG Ring exactly modeled from reference */}
+              <svg
+                className={`w-20 h-20 md:w-24 md:h-24 transform -rotate-90 drop-shadow-sm ${statsRecords[activeStatIndex].color}`}
+                viewBox="0 0 96 96"
+              >
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  fill="transparent"
+                  className="opacity-10"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r="40"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  fill="transparent"
+                  strokeDasharray={251.2}
+                  strokeDashoffset={251.2 - (251.2 * statsRecords[activeStatIndex].value) / 100}
+                  className="transition-all duration-1000 ease-out"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg md:text-xl font-black tracking-tight leading-none text-slate-800">
+                  {statsRecords[activeStatIndex].displayVal}
+                </span>
               </div>
             </div>
 
-            {/* 4. TODAY'S CHECKLIST MILESTONES (With Instant Click Sync) */}
-            <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200/50">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
-                    <Compass size={20} className="text-emerald-500" />
-                    Today's Sadhana Checklist
-                  </h2>
-                  <p className="text-xs text-slate-400 font-medium">Quick tap to log milestones instantly on Supabase</p>
-                </div>
-                <button
-                  onClick={() => navigate('/log')}
-                  className="text-xs font-black text-primary-600 hover:text-primary-700 bg-primary-50 px-3 py-1.5 rounded-xl uppercase tracking-wider transition-colors border border-primary-100/50"
-                >
-                  Full Form
-                </button>
-              </div>
+            <div className="relative z-10 px-1">
+              <h3 className="font-black text-base md:text-lg mb-1 md:mb-1.5 tracking-tight text-slate-800">
+                {statsRecords[activeStatIndex].label}
+              </h3>
+              <p className="text-slate-400 text-xs mb-5 md:mb-6 leading-relaxed font-semibold">
+                {statsRecords[activeStatIndex].text}
+              </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { key: 'mangal_arti', label: 'Mangal Arti', desc: 'Attended morning Arti program' },
-                  { key: 'tulasi_arti', label: 'Tulasi Arti', desc: 'Attended Tulasi Puja program' },
-                  { key: 'morning_japa', label: 'Chanted Japa', desc: 'Completed morning chant rounds' },
-                  { key: 'morning_hearing', label: 'Heard Lecture', desc: 'Heard morning Srimad Bhagavatam' }
-                ].map((item) => {
-                  const isChecked = todayEntry ? todayEntry[item.key] : false;
-                  return (
-                    <div
-                      key={item.key}
-                      onClick={() => handleToggleMorningItem(item.key as any)}
-                      className={`
-                        p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 group/item select-none
-                        ${isChecked
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-inner'
-                          : 'bg-slate-50 border-slate-100 hover:bg-slate-100 hover:border-slate-200 text-slate-500'}
-                      `}
-                    >
-                      <div className="flex flex-col items-start gap-0.5">
-                        <span className="text-xs font-black uppercase tracking-wider">{item.label}</span>
-                        <span className="text-[10px] font-medium opacity-60 leading-none">{item.desc}</span>
-                      </div>
-                      
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                        isChecked 
-                          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20' 
-                          : 'bg-white border border-slate-200 text-transparent group-hover/item:border-emerald-300'
-                      }`}>
-                        <CheckCircle size={16} className={isChecked ? 'stroke-[3.5]' : 'text-slate-200'} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 5. QUICK ACTIONS GRID */}
-            <div>
-              <h2 className="text-base font-black text-slate-800 uppercase tracking-widest mb-4">Quick Tools Portal</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {quickActions.map((action, idx) => (
+              {/* Slide indicators (dots) */}
+              <div className="flex justify-center gap-2 mb-5 md:mb-6">
+                {statsRecords.map((_, i) => (
                   <button
-                    key={idx}
-                    onClick={() => navigate(action.path)}
-                    className="bg-white border border-slate-200/50 rounded-[2rem] p-5 flex items-center gap-4 text-left group hover:shadow-md hover:border-slate-300/60 transition-all duration-300 cursor-pointer"
-                  >
-                    <div className={`p-4 bg-gradient-to-br ${action.color} text-white rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-350`}>
-                      <action.icon size={22} className="stroke-[2.5]" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">{action.name}</h3>
-                      <p className="text-[11px] font-medium text-slate-400 mt-0.5 leading-tight">{action.description}</p>
-                    </div>
-                    <ChevronRight size={18} className="text-slate-300 group-hover:translate-x-1 group-hover:text-slate-400 transition-all shrink-0" />
-                  </button>
+                    key={i}
+                    onClick={() => setActiveStatIndex(i)}
+                    className={`h-1.5 rounded-full transition-all duration-500 cursor-pointer ${
+                      i === activeStatIndex 
+                        ? `w-8 ${statsRecords[i].color.replace('text-', 'bg-')} shadow-sm` 
+                        : 'w-2 bg-slate-200 hover:bg-slate-350'
+                    }`}
+                  />
                 ))}
               </div>
-            </div>
 
-          </div>
-
-          {/* RIGHT PORTION (BACE NOTICE BOARD - 1 column wide on large screen) */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-sm border border-slate-200/50 h-full flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center text-primary-600 shadow-inner">
-                    <Calendar size={20} className="stroke-[2.5]" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-black text-slate-800 tracking-tight">Notice Board</h2>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-none mt-0.5">BACE Announcements</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {notices.map((notice) => (
-                    <div
-                      key={notice.id}
-                      className={`p-4 rounded-2xl border ${notice.borderClass} space-y-3 flex flex-col justify-between`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${notice.badgeClass}`}>
-                          {notice.badge}
-                        </span>
-                        <div className={`p-1.5 rounded-lg ${notice.iconClass}`}>
-                          <notice.icon size={14} className="stroke-[2.5]" />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h4 className="text-xs font-black uppercase tracking-wider leading-snug mb-1">
-                          {notice.title}
-                        </h4>
-                        <p className="text-[11px] font-medium leading-relaxed opacity-90">
-                          {notice.content}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Quick stats panel */}
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-center bg-slate-50 rounded-2xl p-4">
-                <div>
-                  <span className="block text-xs font-black text-slate-800 leading-none">
-                    {allEntries.length}
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Logs Total</span>
-                </div>
-                <div className="h-6 w-[1px] bg-slate-200"></div>
-                <div>
-                  <span className="block text-xs font-black text-slate-800 leading-none">
-                    {allEntries.length > 0 
-                      ? (allEntries.reduce((sum, e) => sum + (e.rounds_completed || 0), 0) / allEntries.length).toFixed(1) 
-                      : 0}
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Avg Rounds</span>
-                </div>
-                <div className="h-6 w-[1px] bg-slate-200"></div>
-                <div>
-                  <span className="block text-xs font-black text-slate-800 leading-none text-emerald-600 flex items-center justify-center gap-0.5">
-                    <TrendingUp size={12} />
-                    100%
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sincerity</span>
-                </div>
-              </div>
-
+              {/* Progress CTA Button */}
+              <button
+                onClick={statsRecords[activeStatIndex].action}
+                className={`w-full py-3 ${statsRecords[activeStatIndex].color.replace('text-', 'bg-')} hover:brightness-95 active:scale-[0.98] rounded-xl text-white text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {statsRecords[activeStatIndex].btnText}
+                  <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5 stroke-[3]" />
+                </span>
+              </button>
             </div>
           </div>
 
         </div>
 
       </div>
+
+    </div>
     </StudentLayout>
   );
 };
