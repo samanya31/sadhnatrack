@@ -193,7 +193,7 @@ export const TargetWelcomeModal: React.FC<TargetWelcomeModalProps> = ({
         </button>
 
         {/* Card Header (Target Meta) */}
-        <div className="w-full space-y-2 mb-6">
+        <div className="w-full space-y-2 mb-6 pt-4">
           <div className="flex items-center justify-center gap-2">
             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${theme.bg}`}>
               {currentTarget.period_type} Target
@@ -203,7 +203,7 @@ export const TargetWelcomeModal: React.FC<TargetWelcomeModalProps> = ({
               {daysLeft > 0 ? `${daysLeft} days left` : 'Ends today'}
             </span>
           </div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight px-4 mt-2">
+          <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight px-4 mt-4">
             {currentTarget.title}
           </h2>
           {currentTarget.description && (
