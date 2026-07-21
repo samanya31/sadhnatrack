@@ -2,19 +2,36 @@
 CREATE TABLE IF NOT EXISTS public.baces (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
-  access_key TEXT,
+  access_key TEXT UNIQUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Ensure access_key exists on existing tables
+-- Ensure access_key exists on existing tables and is unique
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'baces' AND column_name = 'access_key') THEN
     ALTER TABLE public.baces ADD COLUMN access_key TEXT;
   END IF;
+  
+  -- Add unique constraint if not exists
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'baces_access_key_key') THEN
+    ALTER TABLE public.baces ADD CONSTRAINT baces_access_key_key UNIQUE (access_key);
+  END IF;
 END $$;
 
--- 2. Update profiles table safely
+-- 2. Create/Update profiles table structure (for new installs)
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT NOT NULL,
+  full_name TEXT,
+  role TEXT DEFAULT 'student' CHECK (role IN ('student', 'admin', 'super_admin')),
+  bace_id UUID REFERENCES public.baces(id) ON DELETE SET NULL,
+  gender TEXT CHECK (gender IN ('male', 'female', 'other')),
+  force_password_change BOOLEAN DEFAULT true NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3. Update profiles table safely
 DO $$ 
 BEGIN
   -- Add bace_id if it doesn't exist
@@ -27,21 +44,15 @@ BEGIN
     ALTER TABLE public.profiles ADD COLUMN gender TEXT CHECK (gender IN ('male', 'female', 'other'));
   END IF;
 
+  -- Add force_password_change if it doesn't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'force_password_change') THEN
+    ALTER TABLE public.profiles ADD COLUMN force_password_change BOOLEAN DEFAULT true NOT NULL;
+  END IF;
+
   -- Update role check constraint if needed
   ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
   ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('student', 'admin', 'super_admin'));
 END $$;
-
--- 3. Create/Update profiles table structure (for new installs)
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  role TEXT DEFAULT 'student' CHECK (role IN ('student', 'admin', 'super_admin')),
-  bace_id UUID REFERENCES public.baces(id) ON DELETE SET NULL,
-  gender TEXT CHECK (gender IN ('male', 'female', 'other')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
 
 -- 3. Create the sadhana_entries table (Maintains same structure)
 CREATE TABLE IF NOT EXISTS public.sadhana_entries (
@@ -212,4 +223,26 @@ CREATE POLICY "BACE admins see targets in their BACE" ON public.sadhana_targets
       AND student_p.bace_id = public.get_my_bace()
     )
   );
+
+
+-- 11. Helper functions for code validation and password updates
+CREATE OR REPLACE FUNCTION public.get_bace_by_access_key(key_input TEXT)
+RETURNS TABLE (id UUID, name TEXT) AS $$
+  SELECT id, name FROM public.baces WHERE access_key = key_input;
+$$ LANGUAGE sql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.clear_force_password_change()
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+  
+  UPDATE public.profiles
+  SET force_password_change = false
+  WHERE id = auth.uid();
+  
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 

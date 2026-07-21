@@ -8,6 +8,7 @@ import { StudentTargets } from './pages/StudentTargets';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
 import { AdminBaces } from './pages/AdminBaces';
+import { ForceChangePassword } from './pages/ForceChangePassword';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -15,6 +16,7 @@ import type { Session } from '@supabase/supabase-js';
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | null>(null);
+  const [forcePasswordChange, setForcePasswordChange] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const lastFetchedUser = useRef<string | null>(null);
 
@@ -32,12 +34,13 @@ function App() {
 
       // Resolve quickly from session metadata/default to avoid spinner lock.
       setRole(resolveRoleFromSession(currentSession));
+      setForcePasswordChange(false);
       setLoading(false);
 
       try {
         const roleQuery = supabase
           .from('profiles')
-          .select('role')
+          .select('role, force_password_change')
           .eq('id', currentSession.user.id)
           .maybeSingle();
 
@@ -53,8 +56,12 @@ function App() {
         if (result.error) throw result.error;
 
         const dbRole = result.data?.role;
+        const dbForceChange = result.data?.force_password_change;
         if (dbRole) {
           setRole(resolveRoleFromSession(currentSession, dbRole));
+        }
+        if (dbForceChange !== undefined && dbForceChange !== null) {
+          setForcePasswordChange(dbForceChange);
         }
       } catch {
         // Ignore DB role failures; fallback role already applied above.
@@ -120,6 +127,17 @@ function App() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (session && forcePasswordChange) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/force-change-password" element={<ForceChangePassword />} />
+          <Route path="*" element={<Navigate to="/force-change-password" replace />} />
+        </Routes>
+      </Router>
     );
   }
 
