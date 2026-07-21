@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Lock, Loader2, Sparkles, LogOut, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Loader2, Sparkles, LogOut, CheckCircle2, AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 export const ForceChangePassword = () => {
+  const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -10,6 +12,35 @@ export const ForceChangePassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isForced, setIsForced] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!mounted) return;
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      
+      supabase
+        .from('profiles')
+        .select('force_password_change')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (!mounted) return;
+          if (!error && data && data.force_password_change === false) {
+            setIsForced(false);
+          }
+        });
+    });
+    
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,15 +199,27 @@ export const ForceChangePassword = () => {
                 {loading ? 'Updating Password...' : 'Save Password'}
               </button>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loading}
-                className="w-full py-3.5 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-slate-100 transition-all"
-              >
-                <LogOut size={16} />
-                Cancel & Sign Out
-              </button>
+              {isForced ? (
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loading}
+                  className="w-full py-3.5 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-slate-100 transition-all cursor-pointer"
+                >
+                  <LogOut size={16} />
+                  Cancel & Sign Out
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  disabled={loading}
+                  className="w-full py-3.5 flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-slate-100 transition-all border border-slate-200 cursor-pointer"
+                >
+                  <ArrowLeft size={16} />
+                  Back to Dashboard
+                </button>
+              )}
             </div>
           </form>
 

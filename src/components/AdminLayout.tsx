@@ -8,7 +8,8 @@ import {
   ChevronRight,
   ClipboardList,
   TrendingUp,
-  Building2
+  Building2,
+  Lock
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -51,6 +52,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
     { id: 'students', name: 'Student Directory', icon: Users, description: 'User management', path: '/admin/students', roles: ['admin', 'super_admin'] },
     { id: 'reports', name: 'Analytical Reports', icon: TrendingUp, description: 'View progress charts', path: '/admin/reports', roles: ['admin', 'super_admin'] },
     { id: 'baces', name: 'Manage BACEs', icon: Building2, description: 'Center management', path: '/admin/baces', roles: ['super_admin'] },
+    { id: 'change-password', name: 'Change Password', icon: Lock, description: 'Update password', path: '/change-password', roles: ['admin', 'super_admin'] },
   ] as const;
 
   const filteredNavItems = navItems.filter(item => 
