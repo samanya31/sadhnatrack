@@ -90,6 +90,12 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
                   <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></div>
                   Active
                 </div>
+                <button 
+                  onClick={() => navigate('/change-password')}
+                  className="px-2.5 py-1 text-slate-400 hover:text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-slate-200/50 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Change Password
+                </button>
               </div>
             </div>
 

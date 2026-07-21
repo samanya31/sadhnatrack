@@ -240,6 +240,11 @@ function App() {
           } 
         />
 
+        <Route 
+          path="/change-password" 
+          element={session ? <ForceChangePassword /> : <Navigate to="/login" replace />} 
+        />
+
         <Route path="/" element={<Navigate to={session ? ((role === 'admin' || role === 'super_admin') ? "/admin" : "/dashboard") : "/login"} replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

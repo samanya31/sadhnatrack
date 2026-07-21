@@ -100,9 +100,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
               <p className="text-sm font-black text-slate-900 truncate max-w-[150px]">
                 {userProfile?.full_name || userProfile?.email?.split('@')[0] || 'Administrator'}
               </p>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary-50 text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-primary-100/50">
-                <ShieldCheck size={10} />
-                {userProfile?.role === 'super_admin' ? 'Super Admin' : 'BACE Admin'}
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary-50 text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-primary-100/50">
+                  <ShieldCheck size={10} />
+                  {userProfile?.role === 'super_admin' ? 'Super Admin' : 'BACE Admin'}
+                </div>
+                <button 
+                  onClick={() => navigate('/change-password')}
+                  className="px-2.5 py-1 text-slate-400 hover:text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-slate-200/50 hover:bg-slate-50 transition-all cursor-pointer animate-in fade-in"
+                >
+                  Change Password
+                </button>
               </div>
             </div>
 
