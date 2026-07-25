@@ -434,7 +434,7 @@ export const StudentLog = () => {
             reading_minutes: data.reading_minutes || 0,
             reading_book: data.reading_book || '',
             reading_sloka: data.reading_sloka || '',
-            seva_performed: data.seva_performed || false,
+            seva_performed: data.seva_performed ?? data.seva_done ?? false,
             seva_minutes: data.seva_minutes || 0,
             seva_topic: data.seva_topic || '',
             exercise_done: data.exercise_done || false,
@@ -483,10 +483,12 @@ export const StudentLog = () => {
   }, [formData.date]);
 
   const sanitizePayload = (data: typeof formData) => {
-    const sanitized = { ...data };
-    if (sanitized.wakeup_time === "") sanitized.wakeup_time = null as any;
-    if (sanitized.sleep_time === "") sanitized.sleep_time = null as any;
-    if (sanitized.rounds_completed_by === "") sanitized.rounds_completed_by = null as any;
+    const sanitized: any = { ...data };
+    if (sanitized.wakeup_time === "") sanitized.wakeup_time = null;
+    if (sanitized.sleep_time === "") sanitized.sleep_time = null;
+    if (sanitized.rounds_completed_by === "") sanitized.rounds_completed_by = null;
+    sanitized.seva_done = Boolean(sanitized.seva_performed);
+    delete sanitized.seva_performed;
     return sanitized;
   };
 
@@ -506,7 +508,7 @@ export const StudentLog = () => {
 
       const { data, error } = await supabase
         .from('sadhana_entries')
-        .upsert(payload, { onConflict: 'user_id, date' })
+        .upsert(payload, { onConflict: 'user_id,date' })
         .select()
         .maybeSingle();
 
@@ -577,7 +579,7 @@ export const StudentLog = () => {
 
         const { error } = await supabase
           .from('sadhana_entries')
-          .upsert(payload, { onConflict: 'user_id, date' });
+          .upsert(payload, { onConflict: 'user_id,date' });
 
         if (error) throw error;
         setSuccess(true);

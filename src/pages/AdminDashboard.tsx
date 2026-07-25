@@ -494,22 +494,22 @@ export const AdminDashboard = () => {
 
                     {/* Seva Wide Card */}
                     <div className={`rounded-[2.5rem] border p-5 md:p-8 flex items-center justify-between gap-6 md:gap-8 hover:shadow-md transition-all ${
-                      selectedDateEntry.seva_performed 
+                      (selectedDateEntry.seva_performed || selectedDateEntry.seva_done) 
                         ? 'bg-amber-50/50 border-amber-100' 
                         : 'bg-white border-slate-100'
                     }`}>
                       <div className="flex items-center gap-6">
                         <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center ${
-                          selectedDateEntry.seva_performed ? 'bg-amber-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300'
+                          (selectedDateEntry.seva_performed || selectedDateEntry.seva_done) ? 'bg-amber-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300'
                         }`}>
                           <Hammer size={32} />
                         </div>
                         <div>
                           <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Daily Seva</h5>
-                          <p className={`text-xl font-semibold tracking-tight ${selectedDateEntry.seva_performed ? 'text-slate-700' : 'text-slate-300'}`}>
-                            {selectedDateEntry.seva_performed ? 'Service Completed' : 'No Service Logged'}
+                          <p className={`text-xl font-semibold tracking-tight ${(selectedDateEntry.seva_performed || selectedDateEntry.seva_done) ? 'text-slate-700' : 'text-slate-300'}`}>
+                            {(selectedDateEntry.seva_performed || selectedDateEntry.seva_done) ? 'Service Completed' : 'No Service Logged'}
                           </p>
-                          {selectedDateEntry.seva_performed && selectedDateEntry.seva_topic && (
+                          {(selectedDateEntry.seva_performed || selectedDateEntry.seva_done) && selectedDateEntry.seva_topic && (
                             <div className="mt-2.5 p-4 bg-amber-100/40 rounded-2xl border border-amber-200/30">
                               <p className="text-sm font-semibold text-amber-900/80 leading-relaxed italic">
                                 "{selectedDateEntry.seva_topic}"
@@ -518,7 +518,7 @@ export const AdminDashboard = () => {
                           )}
                         </div>
                       </div>
-                      {selectedDateEntry.seva_performed && (
+                      {(selectedDateEntry.seva_performed || selectedDateEntry.seva_done) && (
                         <div className="text-right shrink-0">
                           <p className="text-3xl font-black text-amber-600">{selectedDateEntry.seva_minutes}m</p>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Duration</p>

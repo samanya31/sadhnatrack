@@ -260,28 +260,28 @@ export const SadhanaDayDetail = ({
           className={`rounded-[2rem] border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-w-0 ${
             embedded ? 'md:col-span-2' : ''
           } ${
-            entry.seva_performed ? 'bg-amber-50/50 border-amber-100' : 'bg-white border-slate-100'
+            (entry.seva_performed || entry.seva_done) ? 'bg-amber-50/50 border-amber-100' : 'bg-white border-slate-100'
           }`}
         >
           <div className="flex items-center gap-4 min-w-0">
             <div
               className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                entry.seva_performed ? 'bg-amber-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300'
+                (entry.seva_performed || entry.seva_done) ? 'bg-amber-500 text-white shadow-lg' : 'bg-slate-50 text-slate-300'
               }`}
             >
               <Hammer size={24} />
             </div>
             <div className="min-w-0">
               <h5 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Daily Seva</h5>
-              <p className={`text-base font-semibold tracking-tight ${entry.seva_performed ? 'text-slate-700' : 'text-slate-300'}`}>
-                {entry.seva_performed ? 'Service Completed' : 'No Service Logged'}
+              <p className={`text-base font-semibold tracking-tight ${(entry.seva_performed || entry.seva_done) ? 'text-slate-700' : 'text-slate-300'}`}>
+                {(entry.seva_performed || entry.seva_done) ? 'Service Completed' : 'No Service Logged'}
               </p>
-              {entry.seva_performed && entry.seva_topic && (
+              {(entry.seva_performed || entry.seva_done) && entry.seva_topic && (
                 <p className="text-xs font-semibold text-amber-900/80 italic mt-1 break-words">&quot;{entry.seva_topic}&quot;</p>
               )}
             </div>
           </div>
-          {entry.seva_performed && (
+          {(entry.seva_performed || entry.seva_done) && (
             <div className="text-right shrink-0">
               <p className="text-2xl font-black text-amber-600">{entry.seva_minutes}m</p>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration</p>

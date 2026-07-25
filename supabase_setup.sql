@@ -89,6 +89,17 @@ CREATE TABLE IF NOT EXISTS public.sadhana_entries (
   UNIQUE(user_id, date)
 );
 
+-- Ensure both seva_done and seva_performed exist on existing sadhana_entries table
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sadhana_entries' AND column_name = 'seva_done') THEN
+    ALTER TABLE public.sadhana_entries ADD COLUMN seva_done BOOLEAN DEFAULT false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sadhana_entries' AND column_name = 'seva_performed') THEN
+    ALTER TABLE public.sadhana_entries ADD COLUMN seva_performed BOOLEAN DEFAULT false;
+  END IF;
+END $$;
+
 -- 4. Enable Row Level Security (RLS)
 ALTER TABLE public.baces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

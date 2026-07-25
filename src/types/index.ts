@@ -36,7 +36,8 @@ export interface SadhanaEntry {
   reading_minutes: number;
   reading_book?: string;
   reading_sloka?: string;
-  seva_performed: boolean;
+  seva_performed?: boolean;
+  seva_done?: boolean;
   seva_minutes?: number;
   seva_topic?: string;
   exercise_done: boolean;
