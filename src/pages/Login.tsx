@@ -107,18 +107,23 @@ export const Login = () => {
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
       });
 
-      // Send OTP email via Brevo API if key exists
-      if (import.meta.env.VITE_BREVO_API_KEY) {
-        await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'signup').catch(err => {
-          console.warn('Brevo API email error:', err);
-        });
+      // Send OTP email via Brevo API if key exists, else warn user
+      const apiKey = import.meta.env.VITE_BREVO_API_KEY;
+      if (apiKey) {
+        try {
+          await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'signup');
+        } catch (bErr: any) {
+          throw new Error('Brevo Email API error: ' + (bErr.message || 'Failed to send OTP email'));
+        }
+      } else {
+        console.warn('VITE_BREVO_API_KEY is not defined in .env file.');
       }
 
       // If email confirmation is required, show OTP Modal
       if (signUpData.user && !signUpData.session) {
         setPendingEmail(cleanEmail);
         setShowOtpModal(true);
-        setSuccessMessage(`Account registered for center "${baceName}"! Check your email for the 6-digit OTP code.`);
+        setSuccessMessage(`Account registered for center "${baceName}"! ${apiKey ? 'Check your inbox for the 6-digit OTP.' : 'Please configure VITE_BREVO_API_KEY in .env to receive OTPs.'}`);
       } else {
         setSuccessMessage(`Account created successfully for center "${baceName}"! Logging you in...`);
       }
@@ -195,24 +200,16 @@ export const Login = () => {
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
       });
 
-      // Send OTP via Brevo REST API if key is present
-      let brevoSent = false;
-      if (import.meta.env.VITE_BREVO_API_KEY) {
-        try {
-          await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
-          brevoSent = true;
-        } catch (bErr: any) {
-          console.warn('Brevo API send error:', bErr);
-        }
+      const apiKey = import.meta.env.VITE_BREVO_API_KEY;
+      if (!apiKey) {
+        throw new Error('VITE_BREVO_API_KEY is missing from your .env file! Please add VITE_BREVO_API_KEY=your_key in .env and restart your server.');
       }
 
-      // Also trigger Supabase reset password email as fallback
-      if (!brevoSent) {
-        await supabase.auth.resetPasswordForEmail(cleanEmail).catch(() => {});
-      }
+      // Send OTP via Brevo REST API
+      await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
 
       setForgotStep('otp');
-      setForgotSuccess(`A 6-digit OTP code has been sent to ${cleanEmail}. Check your inbox.`);
+      setForgotSuccess(`A 6-digit OTP code has been sent via Brevo to ${cleanEmail}. Check your inbox.`);
     } catch (err: any) {
       setForgotError(err.message || 'Failed to send OTP code.');
     } finally {
