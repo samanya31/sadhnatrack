@@ -55,7 +55,7 @@ export const Login = () => {
   };
 
   const handleSendSignupOtp = async () => {
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       setError('Please enter a valid email address first.');
       return;
@@ -66,14 +66,25 @@ export const Login = () => {
     setSuccessMessage(null);
 
     try {
-      // 1. Check if email is already registered in profiles
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', cleanEmail)
-        .maybeSingle();
+      // 1. Check if email is already registered using RPC (bypasses RLS for guest signup)
+      let isRegistered = false;
+      const { data: rpcExists, error: rpcErr } = await supabase.rpc('check_email_exists', {
+        p_email: cleanEmail
+      });
 
-      if (existingProfile) {
+      if (!rpcErr && rpcExists === true) {
+        isRegistered = true;
+      } else {
+        // Direct query fallback
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+        if (existingProfile) isRegistered = true;
+      }
+
+      if (isRegistered) {
         throw new Error('This email address is already registered. Please sign in or use a different email address.');
       }
 

@@ -170,6 +170,13 @@ CREATE POLICY "password_otps_all" ON public.password_otps
   FOR ALL USING (true) WITH CHECK (true);
 
 -- 10. Helper Functions (SECURITY DEFINER to run with creator privileges)
+CREATE OR REPLACE FUNCTION public.check_email_exists(p_email TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE LOWER(email) = LOWER(TRIM(p_email))
+  );
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
 CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS TEXT AS $$
   SELECT role FROM public.profiles WHERE id = auth.uid();
