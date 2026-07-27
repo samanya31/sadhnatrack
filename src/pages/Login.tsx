@@ -16,10 +16,13 @@ export const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // OTP Verification for Sign Up
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [pendingEmail, setPendingEmail] = useState('');
+  // Inline OTP Email Verification for Sign Up
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [signupOtpInput, setSignupOtpInput] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   // Forgot Password Modal (Email -> OTP -> New Password)
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -51,11 +54,100 @@ export const Login = () => {
     }
   };
 
+  const handleSendSignupOtp = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setError('Please enter a valid email address first.');
+      return;
+    }
+
+    setSendingOtp(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store OTP in database
+      const { error: dbError } = await supabase.from('password_otps').insert({
+        email: cleanEmail,
+        otp_code: generatedOtp,
+        type: 'signup',
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      });
+
+      if (dbError) throw new Error('Database error storing OTP: ' + dbError.message);
+
+      // Send OTP email via Brevo API
+      const apiKey = import.meta.env.VITE_BREVO_API_KEY;
+      if (apiKey) {
+        await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'signup');
+      } else {
+        console.warn('VITE_BREVO_API_KEY is missing in .env');
+      }
+
+      setOtpSent(true);
+      setSuccessMessage(`A 6-digit verification OTP code has been sent to ${cleanEmail}. Please enter it below.`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send OTP code.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifySignupInlineOtp = async () => {
+    const cleanEmail = email.trim();
+    const cleanOtp = signupOtpInput.trim();
+
+    if (cleanOtp.length < 6) {
+      setError('Please enter the full 6-digit OTP code.');
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const { data: dbOtps, error: dbErr } = await supabase
+        .from('password_otps')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('otp_code', cleanOtp)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (dbErr) throw dbErr;
+
+      if (dbOtps && dbOtps.length > 0) {
+        await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
+        setIsEmailVerified(true);
+        setVerifiedEmail(cleanEmail);
+        setSuccessMessage('✓ Email address verified successfully! You can now click Sign Up.');
+      } else {
+        throw new Error('Invalid or expired 6-digit OTP code.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'OTP verification failed.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccessMessage(null);
+
+    const cleanEmail = email.trim();
+
+    if (!isEmailVerified || cleanEmail !== verifiedEmail) {
+      setError('Please verify your email address via OTP before signing up.');
+      setLoading(false);
+      return;
+    }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
@@ -78,9 +170,9 @@ export const Login = () => {
       const baceId = baceData[0].id;
       const baceName = baceData[0].name;
 
-      // 2. Register user (created_by_admin: false so force_password_change is false)
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
+      // 2. Register user
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: cleanEmail,
         password: password,
         options: {
           data: {
@@ -96,86 +188,20 @@ export const Login = () => {
 
       if (signUpError) throw signUpError;
 
-      const cleanEmail = email.trim();
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      // Store OTP in database
-      await supabase.from('password_otps').insert({
+      // 3. Auto login user
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
-        otp_code: generatedOtp,
-        type: 'signup',
-        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+        password: password
       });
 
-      // Send OTP email via Brevo API if key exists, else warn user
-      const apiKey = import.meta.env.VITE_BREVO_API_KEY;
-      if (apiKey) {
-        try {
-          await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'signup');
-        } catch (bErr: any) {
-          throw new Error('Brevo Email API error: ' + (bErr.message || 'Failed to send OTP email'));
-        }
-      } else {
-        console.warn('VITE_BREVO_API_KEY is not defined in .env file.');
-      }
-
-      // If email confirmation is required, show OTP Modal
-      if (signUpData.user && !signUpData.session) {
-        setPendingEmail(cleanEmail);
-        setShowOtpModal(true);
-        setSuccessMessage(`Account registered for center "${baceName}"! ${apiKey ? 'Check your inbox for the 6-digit OTP.' : 'Please configure VITE_BREVO_API_KEY in .env to receive OTPs.'}`);
-      } else {
+      if (!signInError) {
         setSuccessMessage(`Account created successfully for center "${baceName}"! Logging you in...`);
+      } else {
+        setSuccessMessage(`Account created successfully for center "${baceName}"! Please sign in.`);
+        setIsSignUp(false);
       }
-
     } catch (err: any) {
       setError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifySignupOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const cleanEmail = pendingEmail.trim();
-    const cleanOtp = otpCode.trim();
-
-    try {
-      // 1. Check Brevo database OTP match
-      const { data: dbOtps } = await supabase
-        .from('password_otps')
-        .select('*')
-        .eq('email', cleanEmail)
-        .eq('otp_code', cleanOtp)
-        .gte('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (dbOtps && dbOtps.length > 0) {
-        // Delete used OTP
-        await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
-        setShowOtpModal(false);
-        setSuccessMessage('Email verified successfully! Please sign in with your email and password.');
-        setIsSignUp(false);
-        return;
-      }
-
-      // 2. Fallback to Supabase auth OTP
-      const { error } = await supabase.auth.verifyOtp({
-        email: cleanEmail,
-        token: cleanOtp,
-        type: 'signup'
-      });
-
-      if (error) throw error;
-
-      setShowOtpModal(false);
-      setSuccessMessage('Email verified successfully! You are now logged in.');
-    } catch (err: any) {
-      setError(err.message || 'Invalid or expired 6-digit OTP code.');
     } finally {
       setLoading(false);
     }
@@ -409,19 +435,74 @@ export const Login = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input-field pl-10"
-                    placeholder="name@example.com"
-                  />
+                <div className="flex items-center justify-between ml-1 mb-1.5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+                  {isEmailVerified && email.trim() === verifiedEmail && (
+                    <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Email Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      disabled={isEmailVerified && email.trim() === verifiedEmail}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (isEmailVerified && e.target.value.trim() !== verifiedEmail) {
+                          setIsEmailVerified(false);
+                          setOtpSent(false);
+                        }
+                      }}
+                      className="input-field pl-10"
+                      placeholder="name@example.com"
+                    />
+                  </div>
+                  {!(isEmailVerified && email.trim() === verifiedEmail) && (
+                    <button
+                      type="button"
+                      disabled={sendingOtp || !email.includes('@')}
+                      onClick={handleSendSignupOtp}
+                      className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-2xl border border-primary-200 transition-all shrink-0 cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                    >
+                      {sendingOtp ? <Loader2 className="animate-spin" size={14} /> : null}
+                      {otpSent ? 'Resend OTP' : 'Send OTP'}
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Inline OTP Verification Box */}
+              {otpSent && !(isEmailVerified && email.trim() === verifiedEmail) && (
+                <div className="bg-orange-50/90 border border-orange-200/80 p-3.5 rounded-2xl space-y-2 animate-in fade-in duration-300">
+                  <p className="text-[11px] font-bold text-orange-800 flex items-center gap-1.5">
+                    <ShieldCheck size={16} className="text-orange-600 shrink-0" />
+                    Enter 6-digit OTP code sent to <span className="font-black text-orange-950 underline">{email}</span>:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={signupOtpInput}
+                      onChange={(e) => setSignupOtpInput(e.target.value)}
+                      placeholder="6-Digit OTP"
+                      className="px-3 py-2 text-center text-base font-mono font-black bg-white border border-orange-200 rounded-xl focus:ring-2 focus:ring-primary-500/20 outline-none flex-1 tracking-[0.3em]"
+                    />
+                    <button
+                      type="button"
+                      disabled={verifyingOtp || signupOtpInput.trim().length < 6}
+                      onClick={handleVerifySignupInlineOtp}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {verifyingOtp ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Password</label>
@@ -469,14 +550,21 @@ export const Login = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 cursor-pointer"
-              >
-                {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-                {loading ? 'Creating Account...' : 'Sign Up'}
-              </button>
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading || !(isEmailVerified && email.trim() === verifiedEmail)}
+                  className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                  {loading ? 'Creating Account...' : 'Sign Up'}
+                </button>
+                {!(isEmailVerified && email.trim() === verifiedEmail) && (
+                  <p className="text-center text-[10px] font-bold text-slate-400 mt-2">
+                    🔒 Verify your email address via OTP above to unlock Sign Up
+                  </p>
+                )}
+              </div>
             </form>
           )}
 
@@ -514,52 +602,7 @@ export const Login = () => {
         </div>
       </div>
 
-      {/* OTP Verification Modal (Sign Up) */}
-      {showOtpModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 sm:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
-            <button
-              onClick={() => setShowOtpModal(false)}
-              className="absolute right-6 top-6 text-slate-400 hover:text-slate-900 transition-colors"
-            >
-              <X size={24} />
-            </button>
-            
-            <div className="text-center mb-6">
-              <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 mx-auto mb-4">
-                <ShieldCheck size={28} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Verify Email OTP</h3>
-              <p className="text-slate-500 text-xs font-bold mt-2">
-                Enter the 6-digit OTP code sent to <span className="text-slate-900">{pendingEmail}</span>
-              </p>
-            </div>
 
-            <form onSubmit={handleVerifySignupOtp} className="space-y-4">
-              <div>
-                <input
-                  autoFocus
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="Enter 6-digit OTP"
-                  className="w-full px-4 py-3 text-center text-2xl tracking-[0.4em] font-mono font-black bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500/20 outline-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || otpCode.length < 6}
-                className="w-full btn-primary py-4 text-xs font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {loading ? <Loader2 className="animate-spin" size={16} /> : 'Verify & Continue'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Forgot Password Modal (Brevo OTP Integration) */}
       {showForgotModal && (
