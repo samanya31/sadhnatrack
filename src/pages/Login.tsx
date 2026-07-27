@@ -66,6 +66,17 @@ export const Login = () => {
     setSuccessMessage(null);
 
     try {
+      // 1. Check if email is already registered in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (existingProfile) {
+        throw new Error('This email address is already registered. Please sign in or use a different email address.');
+      }
+
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Store OTP in database
