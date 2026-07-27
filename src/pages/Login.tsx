@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendBrevoOtpEmail } from '../lib/brevo';
 import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, ArrowLeft, Key, ShieldCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,11 +21,12 @@ export const Login = () => {
   const [otpCode, setOtpCode] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
 
-  // Forgot Password Modal
+  // Forgot Password Modal (Email -> OTP -> New Password)
   const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'new_password'>('email');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export const Login = () => {
       const baceId = baceData[0].id;
       const baceName = baceData[0].name;
 
-      // 2. Register the user (Pass created_by_admin: false so force_password_change is false)
+      // 2. Register user (created_by_admin: false so force_password_change is false)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
@@ -94,11 +96,29 @@ export const Login = () => {
 
       if (signUpError) throw signUpError;
 
-      // If email confirmation is required, prompt for OTP verification
+      const cleanEmail = email.trim();
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store OTP in database
+      await supabase.from('password_otps').insert({
+        email: cleanEmail,
+        otp_code: generatedOtp,
+        type: 'signup',
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      });
+
+      // Send OTP email via Brevo API if key exists
+      if (import.meta.env.VITE_BREVO_API_KEY) {
+        await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'signup').catch(err => {
+          console.warn('Brevo API email error:', err);
+        });
+      }
+
+      // If email confirmation is required, show OTP Modal
       if (signUpData.user && !signUpData.session) {
-        setPendingEmail(email.trim());
+        setPendingEmail(cleanEmail);
         setShowOtpModal(true);
-        setSuccessMessage(`Account registered for center "${baceName}"! Please check your email for the 6-digit OTP code.`);
+        setSuccessMessage(`Account registered for center "${baceName}"! Check your email for the 6-digit OTP code.`);
       } else {
         setSuccessMessage(`Account created successfully for center "${baceName}"! Logging you in...`);
       }
@@ -115,10 +135,33 @@ export const Login = () => {
     setLoading(true);
     setError(null);
 
+    const cleanEmail = pendingEmail.trim();
+    const cleanOtp = otpCode.trim();
+
     try {
+      // 1. Check Brevo database OTP match
+      const { data: dbOtps } = await supabase
+        .from('password_otps')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('otp_code', cleanOtp)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (dbOtps && dbOtps.length > 0) {
+        // Delete used OTP
+        await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
+        setShowOtpModal(false);
+        setSuccessMessage('Email verified successfully! Please sign in with your email and password.');
+        setIsSignUp(false);
+        return;
+      }
+
+      // 2. Fallback to Supabase auth OTP
       const { error } = await supabase.auth.verifyOtp({
-        email: pendingEmail,
-        token: otpCode.trim(),
+        email: cleanEmail,
+        token: cleanOtp,
         type: 'signup'
       });
 
@@ -127,7 +170,7 @@ export const Login = () => {
       setShowOtpModal(false);
       setSuccessMessage('Email verified successfully! You are now logged in.');
     } catch (err: any) {
-      setError(err.message || 'Invalid or expired OTP code.');
+      setError(err.message || 'Invalid or expired 6-digit OTP code.');
     } finally {
       setLoading(false);
     }
@@ -139,14 +182,39 @@ export const Login = () => {
     setForgotError(null);
     setForgotSuccess(null);
 
+    const cleanEmail = forgotEmail.trim();
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
-      if (error) throw error;
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      // Store in password_otps table
+      await supabase.from('password_otps').insert({
+        email: cleanEmail,
+        otp_code: generatedOtp,
+        type: 'reset',
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      });
+
+      // Send OTP via Brevo REST API if key is present
+      let brevoSent = false;
+      if (import.meta.env.VITE_BREVO_API_KEY) {
+        try {
+          await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
+          brevoSent = true;
+        } catch (bErr: any) {
+          console.warn('Brevo API send error:', bErr);
+        }
+      }
+
+      // Also trigger Supabase reset password email as fallback
+      if (!brevoSent) {
+        await supabase.auth.resetPasswordForEmail(cleanEmail).catch(() => {});
+      }
 
       setForgotStep('otp');
-      setForgotSuccess(`OTP verification code sent to ${forgotEmail.trim()}. Check your inbox.`);
+      setForgotSuccess(`A 6-digit OTP code has been sent to ${cleanEmail}. Check your inbox.`);
     } catch (err: any) {
-      setForgotError(err.message || 'Failed to send reset email.');
+      setForgotError(err.message || 'Failed to send OTP code.');
     } finally {
       setForgotLoading(false);
     }
@@ -157,20 +225,74 @@ export const Login = () => {
     setForgotLoading(true);
     setForgotError(null);
 
+    const cleanEmail = forgotEmail.trim();
+    const cleanOtp = forgotOtp.trim();
+
     try {
+      // 1. Check Brevo database OTP match
+      const { data: dbOtps } = await supabase
+        .from('password_otps')
+        .select('*')
+        .eq('email', cleanEmail)
+        .eq('otp_code', cleanOtp)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (dbOtps && dbOtps.length > 0) {
+        // Delete used OTP
+        await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
+        setForgotStep('new_password');
+        setForgotSuccess('OTP verified successfully! Now set your new password.');
+        return;
+      }
+
+      // 2. Fallback to Supabase auth verifyOtp
       const { error } = await supabase.auth.verifyOtp({
-        email: forgotEmail.trim(),
-        token: forgotOtp.trim(),
+        email: cleanEmail,
+        token: cleanOtp,
         type: 'recovery'
       });
 
       if (error) throw error;
 
+      // If authenticated by Supabase recovery session, navigate to password change
       setShowForgotModal(false);
-      // Navigate to password change screen
       navigate('/change-password');
     } catch (err: any) {
       setForgotError(err.message || 'Invalid or expired OTP code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleUpdateNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setForgotError('New password must be at least 6 characters long.');
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError(null);
+
+    try {
+      // Try updating logged in recovery user session
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (updateError) {
+        // If not logged in, try signing in with recovery / admin or clear force password flag
+        throw updateError;
+      }
+
+      alert('Password updated successfully! You can now log in with your new password.');
+      setShowForgotModal(false);
+      setForgotStep('email');
+      setPassword(newPassword);
+    } catch (err: any) {
+      setForgotError('Failed to update password: ' + err.message);
     } finally {
       setForgotLoading(false);
     }
@@ -442,7 +564,7 @@ export const Login = () => {
         </div>
       )}
 
-      {/* Forgot Password Modal */}
+      {/* Forgot Password Modal (Brevo OTP Integration) */}
       {showForgotModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 sm:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
@@ -461,7 +583,9 @@ export const Login = () => {
               <p className="text-slate-500 text-xs font-bold mt-2">
                 {forgotStep === 'email' 
                   ? 'Enter your registered email to receive a 6-digit OTP' 
-                  : `Enter the OTP sent to ${forgotEmail}`}
+                  : forgotStep === 'otp'
+                  ? `Enter the OTP sent to ${forgotEmail}`
+                  : 'Enter your new password below'}
               </p>
             </div>
 
@@ -479,7 +603,7 @@ export const Login = () => {
               </div>
             )}
 
-            {forgotStep === 'email' ? (
+            {forgotStep === 'email' && (
               <form onSubmit={handleSendResetEmail} className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Email Address</label>
@@ -501,10 +625,12 @@ export const Login = () => {
                   disabled={forgotLoading}
                   className="w-full btn-primary py-3.5 text-xs font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Send OTP'}
+                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Send 6-Digit OTP Email'}
                 </button>
               </form>
-            ) : (
+            )}
+
+            {forgotStep === 'otp' && (
               <form onSubmit={handleVerifyForgotOtp} className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 text-center">6-Digit OTP Code</label>
@@ -525,7 +651,34 @@ export const Login = () => {
                   disabled={forgotLoading || forgotOtp.length < 6}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Verify OTP & Reset Password'}
+                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Verify OTP Code'}
+                </button>
+              </form>
+            )}
+
+            {forgotStep === 'new_password' && (
+              <form onSubmit={handleUpdateNewPassword} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">New Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="input-field pl-10"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading || newPassword.length < 6}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Save New Password'}
                 </button>
               </form>
             )}

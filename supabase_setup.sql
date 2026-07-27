@@ -327,3 +327,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 13. OTP Storage Table for Brevo API Email OTP Verification
+CREATE TABLE IF NOT EXISTS public.password_otps (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT NOT NULL,
+  otp_code TEXT NOT NULL,
+  type TEXT DEFAULT 'reset',
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.password_otps ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow all access to password_otps" ON public.password_otps;
+CREATE POLICY "Allow all access to password_otps" ON public.password_otps FOR ALL USING (true) WITH CHECK (true);
+
