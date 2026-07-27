@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
-import { supabase } from '../lib/supabase';
+import { supabase, registerUserWithoutLoggingIn } from '../lib/supabase';
 import { type SadhanaEntry } from '../types/index';
 import { 
   Search, 
@@ -85,6 +85,21 @@ export const AdminDashboard = () => {
         if (profile?.role === 'super_admin') {
           const { data: baceData } = await supabase.from('baces').select('*');
           setBaces(baceData || []);
+        } else if (profile?.role === 'admin') {
+          const { data: directBace } = await supabase.from('baces').select('*').eq('id', profile.bace_id || '');
+          const { data: junctionData } = await supabase.from('admin_baces').select('bace:baces(*)').eq('admin_id', user.id);
+          const junctionBaces = (junctionData || []).map((j: any) => j.bace).filter(Boolean);
+          const baceMap = new Map();
+          [...(directBace || []), ...junctionBaces].forEach(b => baceMap.set(b.id, b));
+          const myBaces = Array.from(baceMap.values());
+          setBaces(myBaces);
+          if (myBaces.length > 0) {
+            setSelectedBace(myBaces[0].id);
+            setRegData(prev => ({ ...prev, baceId: myBaces[0].id }));
+          } else {
+            setSelectedBace(profile?.bace_id || 'all');
+            setRegData(prev => ({ ...prev, baceId: profile?.bace_id || '' }));
+          }
         } else {
           setSelectedBace(profile?.bace_id || 'all');
           setRegData(prev => ({ ...prev, baceId: profile?.bace_id || '' }));
@@ -166,18 +181,19 @@ export const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email: regData.email,
-        password: regData.password,
-        options: {
+      const { error } = await registerUserWithoutLoggingIn(
+        regData.email,
+        regData.password,
+        {
           data: {
             full_name: regData.fullName,
             role,
             bace_id: baceId,
+            created_by_admin: true,
             ...(role === 'student' ? { gender: regData.gender } : {}),
           },
-        },
-      });
+        }
+      );
       if (error) throw error;
       alert(role === 'admin' ? 'BACE admin registered!' : 'Student registered!');
       setIsModalOpen(false);

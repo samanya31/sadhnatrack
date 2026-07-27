@@ -135,7 +135,7 @@ DROP POLICY IF EXISTS "All admins can view BACEs" ON public.baces;
 CREATE POLICY "All admins can view BACEs" ON public.baces
   FOR SELECT USING ( public.is_any_admin() );
 
--- 7. POLICIES FOR 'profiles'
+-- 7-- 8. POLICIES FOR 'profiles'
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
@@ -144,13 +144,40 @@ DROP POLICY IF EXISTS "Super admins see all profiles" ON public.profiles;
 CREATE POLICY "Super admins see all profiles" ON public.profiles
   FOR ALL USING ( public.is_super_admin() );
 
+-- 8. Junction table for Multi-Center Admins
+CREATE TABLE IF NOT EXISTS public.admin_baces (
+  admin_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  bace_id UUID REFERENCES public.baces(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  PRIMARY KEY (admin_id, bace_id)
+);
+
+ALTER TABLE public.admin_baces ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Super admins can manage admin_baces" ON public.admin_baces;
+CREATE POLICY "Super admins can manage admin_baces" ON public.admin_baces
+  FOR ALL USING ( public.is_super_admin() );
+
+DROP POLICY IF EXISTS "Admins can view their own bace assignments" ON public.admin_baces;
+CREATE POLICY "Admins can view their own bace assignments" ON public.admin_baces
+  FOR SELECT USING ( auth.uid() = admin_id OR public.is_any_admin() );
+
+CREATE OR REPLACE FUNCTION public.admin_has_bace(p_admin_id UUID, p_bace_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = p_admin_id AND bace_id = p_bace_id
+    UNION
+    SELECT 1 FROM public.admin_baces WHERE admin_id = p_admin_id AND bace_id = p_bace_id
+  );
+$$ LANGUAGE sql SECURITY DEFINER;
+
 DROP POLICY IF EXISTS "BACE admins see students in their BACE" ON public.profiles;
 CREATE POLICY "BACE admins see students in their BACE" ON public.profiles
   FOR ALL USING (
-    public.get_my_role() = 'admin' AND public.get_my_bace() = bace_id
+    public.get_my_role() = 'admin' AND public.admin_has_bace(auth.uid(), bace_id)
   );
 
--- 8. POLICIES FOR 'sadhana_entries'
+-- 9. POLICIES FOR 'sadhana_entries'
 DROP POLICY IF EXISTS "Students can manage own logs" ON public.sadhana_entries;
 CREATE POLICY "Students can manage own logs" ON public.sadhana_entries
   FOR ALL USING (auth.uid() = user_id);
@@ -166,23 +193,38 @@ CREATE POLICY "BACE admins see logs in their BACE" ON public.sadhana_entries
     AND EXISTS (
       SELECT 1 FROM public.profiles student_p 
       WHERE student_p.id = sadhana_entries.user_id 
-      AND student_p.bace_id = public.get_my_bace()
+      AND public.admin_has_bace(auth.uid(), student_p.bace_id)
     )
   );
 
--- 9. Trigger for New Users
+-- 10. Trigger for New Users (Sets force_password_change to true ONLY if created by admin)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
+DECLARE
+  v_created_by_admin BOOLEAN;
+  v_force_change BOOLEAN;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, role, bace_id, gender)
+  v_created_by_admin := COALESCE((new.raw_user_meta_data->>'created_by_admin')::boolean, false);
+  v_force_change := COALESCE((new.raw_user_meta_data->>'force_password_change')::boolean, v_created_by_admin);
+
+  INSERT INTO public.profiles (id, email, full_name, role, bace_id, gender, force_password_change)
   VALUES (
     new.id, 
     new.email, 
     COALESCE(new.raw_user_meta_data->>'full_name', 'Student'), 
     COALESCE(new.raw_user_meta_data->>'role', 'student'),
     (new.raw_user_meta_data->>'bace_id')::uuid,
-    NULLIF(new.raw_user_meta_data->>'gender', '')
+    NULLIF(new.raw_user_meta_data->>'gender', ''),
+    v_force_change
   );
+  
+  -- If assigned bace_id and role is admin, record in admin_baces as well
+  IF COALESCE(new.raw_user_meta_data->>'role', 'student') = 'admin' AND (new.raw_user_meta_data->>'bace_id') IS NOT NULL THEN
+    INSERT INTO public.admin_baces (admin_id, bace_id)
+    VALUES (new.id, (new.raw_user_meta_data->>'bace_id')::uuid)
+    ON CONFLICT DO NOTHING;
+  END IF;
+
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -192,10 +234,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Initial Setup: Promote existing admin to Super Admin
--- UPDATE public.profiles SET role = 'super_admin' WHERE email = 'sadhnastaff@gmail.com';
-
--- 10. Create the sadhana_targets table
+-- 11. Create the sadhana_targets table
 CREATE TABLE IF NOT EXISTS public.sadhana_targets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
@@ -231,12 +270,11 @@ CREATE POLICY "BACE admins see targets in their BACE" ON public.sadhana_targets
     AND EXISTS (
       SELECT 1 FROM public.profiles student_p 
       WHERE student_p.id = sadhana_targets.user_id 
-      AND student_p.bace_id = public.get_my_bace()
+      AND public.admin_has_bace(auth.uid(), student_p.bace_id)
     )
   );
 
-
--- 11. Helper functions for code validation and password updates
+-- 12. Helper functions for code validation, password updates, and admin allotment
 CREATE OR REPLACE FUNCTION public.get_bace_by_access_key(key_input TEXT)
 RETURNS TABLE (id UUID, name TEXT) AS $$
   SELECT id, name FROM public.baces WHERE access_key = key_input;
@@ -253,6 +291,38 @@ BEGIN
   SET force_password_change = false
   WHERE id = auth.uid();
   
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.allot_admin_to_bace(p_admin_id UUID, p_bace_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Only super admins can allot center admins.';
+  END IF;
+
+  -- Ensure role is admin
+  UPDATE public.profiles SET role = 'admin' WHERE id = p_admin_id;
+
+  INSERT INTO public.admin_baces (admin_id, bace_id)
+  VALUES (p_admin_id, p_bace_id)
+  ON CONFLICT DO NOTHING;
+
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.remove_admin_from_bace(p_admin_id UUID, p_bace_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Only super admins can remove center admin allotments.';
+  END IF;
+
+  DELETE FROM public.admin_baces
+  WHERE admin_id = p_admin_id AND bace_id = p_bace_id;
+
   RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

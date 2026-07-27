@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
-import { supabase } from '../lib/supabase';
+import { supabase, registerUserWithoutLoggingIn } from '../lib/supabase';
 import type { BACE } from '../types/index';
 import { 
   Building2, 
@@ -10,7 +10,10 @@ import {
   Trash2, 
   ChevronRight,
   ShieldCheck,
-  Calendar
+  Calendar,
+  UserCheck,
+  UserPlus,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -25,12 +28,16 @@ export const AdminBaces = () => {
   
   const [selectedBace, setSelectedBace] = useState<BACE | null>(null);
   const [centerAdmins, setCenterAdmins] = useState<any[]>([]);
+  const [allAdminsList, setAllAdminsList] = useState<any[]>([]);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const [adminAddMode, setAdminAddMode] = useState<'allot' | 'register'>('allot');
+  const [selectedExistingAdminId, setSelectedExistingAdminId] = useState<string>('');
   const [adminData, setAdminData] = useState({ fullName: '', email: '', password: '' });
   const [adminLoading, setAdminLoading] = useState(false);
 
   useEffect(() => {
     fetchBaces();
+    fetchAllAdmins();
   }, []);
 
   const fetchBaces = async () => {
@@ -45,13 +52,39 @@ export const AdminBaces = () => {
     setLoading(false);
   };
 
-  const fetchCenterAdmins = async (baceId: string) => {
+  const fetchAllAdmins = async () => {
     const { data } = await supabase
       .from('profiles')
       .select('*')
+      .in('role', ['admin', 'super_admin'])
+      .order('full_name');
+    setAllAdminsList(data || []);
+  };
+
+  const fetchCenterAdmins = async (baceId: string) => {
+    // 1. Fetch direct bace_id matches
+    const { data: directData } = await supabase
+      .from('profiles')
+      .select('*')
       .eq('bace_id', baceId)
-      .eq('role', 'admin');
-    setCenterAdmins(data || []);
+      .in('role', ['admin', 'super_admin']);
+
+    // 2. Fetch admin_baces junction matches
+    const { data: junctionData } = await supabase
+      .from('admin_baces')
+      .select('admin:profiles(*)')
+      .eq('bace_id', baceId);
+
+    const directAdmins = directData || [];
+    const junctionAdmins = (junctionData || []).map((j: any) => j.admin).filter(Boolean);
+
+    // Merge and deduplicate by id
+    const adminMap = new Map();
+    [...directAdmins, ...junctionAdmins].forEach(admin => {
+      adminMap.set(admin.id, admin);
+    });
+
+    setCenterAdmins(Array.from(adminMap.values()));
   };
 
   useEffect(() => {
@@ -99,34 +132,99 @@ export const AdminBaces = () => {
     b.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleAllotExistingAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBace || !selectedExistingAdminId) return;
+    setAdminLoading(true);
+
+    try {
+      // 1. Try RPC function
+      const { error: rpcError } = await supabase.rpc('allot_admin_to_bace', {
+        p_admin_id: selectedExistingAdminId,
+        p_bace_id: selectedBace.id
+      });
+
+      if (rpcError) {
+        // Fallback: direct insert to admin_baces and role update
+        await supabase.from('profiles').update({ role: 'admin' }).eq('id', selectedExistingAdminId);
+        const { error: insertError } = await supabase
+          .from('admin_baces')
+          .insert({ admin_id: selectedExistingAdminId, bace_id: selectedBace.id });
+        if (insertError) throw insertError;
+      }
+
+      alert('Admin allotted to center successfully!');
+      setSelectedExistingAdminId('');
+      setIsAddingAdmin(false);
+      fetchCenterAdmins(selectedBace.id);
+      fetchAllAdmins();
+    } catch (err: any) {
+      alert('Error allotting admin: ' + err.message);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBace) return;
     setAdminLoading(true);
     
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: adminData.email,
-        password: adminData.password,
-        options: {
+      // Use isolated secondary client so current super admin session is NOT logged out!
+      const { data: signUpData, error: signUpError } = await registerUserWithoutLoggingIn(
+        adminData.email,
+        adminData.password,
+        {
           data: {
             full_name: adminData.fullName,
             role: 'admin',
-            bace_id: selectedBace.id
+            bace_id: selectedBace.id,
+            created_by_admin: true
           }
         }
-      });
+      );
 
       if (signUpError) throw signUpError;
       
-      alert('Admin created successfully! They can now log in.');
+      // Also insert into admin_baces junction table if user was created
+      if (signUpData?.user) {
+        await supabase
+          .from('admin_baces')
+          .insert({ admin_id: signUpData.user.id, bace_id: selectedBace.id });
+      }
+
+      alert('Admin registered successfully! They can log in using their email and password.');
       setAdminData({ fullName: '', email: '', password: '' });
       setIsAddingAdmin(false);
       fetchCenterAdmins(selectedBace.id);
+      fetchAllAdmins();
     } catch (err: any) {
       alert('Error creating admin: ' + err.message);
     } finally {
       setAdminLoading(false);
+    }
+  };
+
+  const handleRemoveAdminFromCenter = async (adminId: string) => {
+    if (!selectedBace) return;
+    if (!window.confirm('Remove this admin from managing this center?')) return;
+
+    try {
+      await supabase.rpc('remove_admin_from_bace', {
+        p_admin_id: adminId,
+        p_bace_id: selectedBace.id
+      });
+
+      await supabase
+        .from('admin_baces')
+        .delete()
+        .eq('admin_id', adminId)
+        .eq('bace_id', selectedBace.id);
+
+      fetchCenterAdmins(selectedBace.id);
+    } catch (err: any) {
+      alert('Error removing admin: ' + err.message);
     }
   };
 
@@ -149,7 +247,7 @@ export const AdminBaces = () => {
 
           <button
             onClick={() => setIsAddingBace(true)}
-            className="flex items-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary-600 transition-all hover:scale-105 active:scale-95 shadow-xl"
+            className="flex items-center gap-2 px-6 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-primary-600 transition-all hover:scale-105 active:scale-95 shadow-xl cursor-pointer"
           >
             <Plus size={18} />
             Create New BACE
@@ -237,7 +335,7 @@ export const AdminBaces = () => {
                               e.stopPropagation();
                               handleDeleteBace(bace.id);
                             }}
-                            className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                            className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                           >
                             <Trash2 size={18} />
                           </button>
@@ -303,13 +401,13 @@ export const AdminBaces = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddingBace(false)}
-                  className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all"
+                  className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-200 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   disabled={submitting}
-                  className="flex-1 px-6 py-4 bg-primary-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50"
+                  className="flex-1 px-6 py-4 bg-primary-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Create Center'}
                 </button>
@@ -322,12 +420,12 @@ export const AdminBaces = () => {
       {/* Center Management Modal */}
       {selectedBace && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[3rem] w-full max-w-2xl p-8 md:p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative">
+          <div className="bg-white rounded-[3rem] w-full max-w-2xl p-8 md:p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative max-h-[90vh] overflow-y-auto">
             <button 
               onClick={() => setSelectedBace(null)}
-              className="absolute right-8 top-8 w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-slate-900 rounded-full transition-all"
+              className="absolute right-8 top-8 w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-slate-900 rounded-full transition-all cursor-pointer"
             >
-              <Plus size={24} className="rotate-45" />
+              <X size={24} />
             </button>
 
             <div className="mb-10">
@@ -349,23 +447,32 @@ export const AdminBaces = () => {
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Assigned Admins</h3>
                   <button 
                     onClick={() => setIsAddingAdmin(true)}
-                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all flex items-center gap-2"
+                    className="px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Plus size={14} />
-                    Add New Admin
+                    Add Center Admin
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {centerAdmins.map(admin => (
-                    <div key={admin.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400 text-sm">
-                        {admin.full_name?.charAt(0)}
+                    <div key={admin.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-slate-400 text-sm shrink-0">
+                          {admin.full_name?.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-slate-900 text-sm truncate">{admin.full_name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-widest">{admin.email}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-black text-slate-900 text-sm truncate">{admin.full_name}</p>
-                        <p className="text-[10px] font-bold text-slate-400 truncate uppercase tracking-widest">{admin.email}</p>
-                      </div>
+                      <button
+                        onClick={() => handleRemoveAdminFromCenter(admin.id)}
+                        className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all shrink-0 cursor-pointer"
+                        title="Remove allotment"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   ))}
                   {centerAdmins.length === 0 && !isAddingAdmin && (
@@ -376,59 +483,135 @@ export const AdminBaces = () => {
                 </div>
               </div>
 
-              {/* Add Admin Form */}
+              {/* Add Admin Form (Allot Pre-Existing vs Register New) */}
               {isAddingAdmin && (
                 <div className="bg-slate-50 p-8 rounded-[2rem] border border-primary-100 animate-in slide-in-from-top-4 duration-300">
-                  <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">Register Center Admin</h4>
-                  <form onSubmit={handleCreateAdmin} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                        <input
-                          required
-                          value={adminData.fullName}
-                          onChange={e => setAdminData({...adminData, fullName: e.target.value})}
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                        <input
-                          type="email"
-                          required
-                          value={adminData.email}
-                          onChange={e => setAdminData({...adminData, email: e.target.value})}
-                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Temporary Password</label>
-                      <input
-                        type="password"
-                        required
-                        value={adminData.password}
-                        onChange={e => setAdminData({...adminData, password: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
-                      />
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                      <button 
-                        type="button" 
-                        onClick={() => setIsAddingAdmin(false)}
-                        className="flex-1 py-3 bg-white text-slate-400 font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-slate-100 transition-all border border-slate-200"
+                  <div className="flex items-center justify-between mb-6">
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">Allot or Register Admin</h4>
+                    
+                    {/* Toggle Tabs */}
+                    <div className="flex bg-slate-200/60 p-1 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setAdminAddMode('allot')}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          adminAddMode === 'allot'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
                       >
-                        Cancel
+                        <UserCheck size={12} />
+                        Allot Existing
                       </button>
-                      <button 
-                        type="submit"
-                        disabled={adminLoading}
-                        className="flex-1 py-3 bg-primary-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50"
+                      <button
+                        type="button"
+                        onClick={() => setAdminAddMode('register')}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                          adminAddMode === 'register'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
                       >
-                        {adminLoading ? <Loader2 className="animate-spin mx-auto" size={14} /> : 'Confirm Registration'}
+                        <UserPlus size={12} />
+                        Register New
                       </button>
                     </div>
-                  </form>
+                  </div>
+
+                  {adminAddMode === 'allot' ? (
+                    /* Allot Existing Admin Form */
+                    <form onSubmit={handleAllotExistingAdmin} className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                          Select Existing Admin User
+                        </label>
+                        <select
+                          required
+                          value={selectedExistingAdminId}
+                          onChange={e => setSelectedExistingAdminId(e.target.value)}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all cursor-pointer"
+                        >
+                          <option value="">Select an admin to assign...</option>
+                          {allAdminsList.map(admin => (
+                            <option key={admin.id} value={admin.id}>
+                              {admin.full_name || admin.email} ({admin.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          type="button" 
+                          onClick={() => setIsAddingAdmin(false)}
+                          className="flex-1 py-3 bg-white text-slate-400 font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-slate-100 transition-all border border-slate-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit"
+                          disabled={adminLoading || !selectedExistingAdminId}
+                          className="flex-1 py-3 bg-primary-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 cursor-pointer"
+                        >
+                          {adminLoading ? <Loader2 className="animate-spin mx-auto" size={14} /> : 'Allot to Center'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    /* Register New Admin Form */
+                    <form onSubmit={handleCreateAdmin} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                          <input
+                            required
+                            value={adminData.fullName}
+                            onChange={e => setAdminData({...adminData, fullName: e.target.value})}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                          <input
+                            type="email"
+                            required
+                            value={adminData.email}
+                            onChange={e => setAdminData({...adminData, email: e.target.value})}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                            placeholder="admin@example.com"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Temporary Password</label>
+                        <input
+                          type="password"
+                          required
+                          value={adminData.password}
+                          onChange={e => setAdminData({...adminData, password: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-primary-500/20 outline-none transition-all"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <button 
+                          type="button" 
+                          onClick={() => setIsAddingAdmin(false)}
+                          className="flex-1 py-3 bg-white text-slate-400 font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-slate-100 transition-all border border-slate-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit"
+                          disabled={adminLoading}
+                          className="flex-1 py-3 bg-primary-600 text-white font-black uppercase tracking-widest text-[10px] rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 cursor-pointer"
+                        >
+                          {adminLoading ? <Loader2 className="animate-spin mx-auto" size={14} /> : 'Register & Assign'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )}
             </div>

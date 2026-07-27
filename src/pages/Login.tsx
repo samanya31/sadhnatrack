@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, ArrowLeft, Key, ShieldCheck, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const Login = () => {
+  const navigate = useNavigate();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,6 +14,20 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // OTP Verification for Sign Up
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
+
+  // Forgot Password Modal
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtp, setForgotOtp] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +42,6 @@ export const Login = () => {
       });
 
       if (error) throw error;
-      // The App router will automatically handle navigation once it detects the session change
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     } finally {
@@ -61,7 +76,7 @@ export const Login = () => {
       const baceId = baceData[0].id;
       const baceName = baceData[0].name;
 
-      // 2. Register the user
+      // 2. Register the user (Pass created_by_admin: false so force_password_change is false)
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
@@ -70,22 +85,20 @@ export const Login = () => {
             full_name: fullName.trim(),
             role: 'student',
             bace_id: baceId,
-            gender: gender
+            gender: gender,
+            created_by_admin: false,
+            force_password_change: false
           }
         }
       });
 
       if (signUpError) throw signUpError;
 
-      // Check if email confirmation is required
+      // If email confirmation is required, prompt for OTP verification
       if (signUpData.user && !signUpData.session) {
-        setSuccessMessage(`Account created successfully for center "${baceName}"! Please check your email inbox to confirm your account.`);
-        // Reset form
-        setFullName('');
-        setEmail('');
-        setPassword('');
-        setBaceCode('');
-        setGender('male');
+        setPendingEmail(email.trim());
+        setShowOtpModal(true);
+        setSuccessMessage(`Account registered for center "${baceName}"! Please check your email for the 6-digit OTP code.`);
       } else {
         setSuccessMessage(`Account created successfully for center "${baceName}"! Logging you in...`);
       }
@@ -97,9 +110,75 @@ export const Login = () => {
     }
   };
 
+  const handleVerifySignupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: pendingEmail,
+        token: otpCode.trim(),
+        type: 'signup'
+      });
+
+      if (error) throw error;
+
+      setShowOtpModal(false);
+      setSuccessMessage('Email verified successfully! You are now logged in.');
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError(null);
+    setForgotSuccess(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
+      if (error) throw error;
+
+      setForgotStep('otp');
+      setForgotSuccess(`OTP verification code sent to ${forgotEmail.trim()}. Check your inbox.`);
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to send reset email.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyForgotOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    setForgotError(null);
+
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: forgotEmail.trim(),
+        token: forgotOtp.trim(),
+        type: 'recovery'
+      });
+
+      if (error) throw error;
+
+      setShowForgotModal(false);
+      // Navigate to password change screen
+      navigate('/change-password');
+    } catch (err: any) {
+      setForgotError(err.message || 'Invalid or expired OTP code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fdfaf5] p-4 relative overflow-hidden">
-      {/* Abstract background blobs */}
+      {/* Background decoration */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-200/30 rounded-full blur-[100px]" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-200/30 rounded-full blur-[100px]" />
 
@@ -154,7 +233,22 @@ export const Login = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Password</label>
+                <div className="flex items-center justify-between ml-1 mb-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(email);
+                      setForgotStep('email');
+                      setForgotError(null);
+                      setForgotSuccess(null);
+                      setShowForgotModal(true);
+                    }}
+                    className="text-[10px] font-black text-primary-600 uppercase tracking-widest hover:underline cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <input
@@ -171,7 +265,7 @@ export const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50"
+                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 cursor-pointer"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
                 {loading ? 'Signing in...' : 'Sign In'}
@@ -259,7 +353,7 @@ export const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50"
+                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 cursor-pointer"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
                 {loading ? 'Creating Account...' : 'Sign Up'}
@@ -290,7 +384,7 @@ export const Login = () => {
                   setError(null);
                   setSuccessMessage(null);
                 }}
-                className="flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] mx-auto transition-all"
+                className="flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] mx-auto transition-all cursor-pointer"
               >
                 <ArrowLeft size={14} />
                 Back to Sign In
@@ -300,6 +394,144 @@ export const Login = () => {
 
         </div>
       </div>
+
+      {/* OTP Verification Modal (Sign Up) */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 sm:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setShowOtpModal(false)}
+              className="absolute right-6 top-6 text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 mx-auto mb-4">
+                <ShieldCheck size={28} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Verify Email OTP</h3>
+              <p className="text-slate-500 text-xs font-bold mt-2">
+                Enter the 6-digit OTP code sent to <span className="text-slate-900">{pendingEmail}</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifySignupOtp} className="space-y-4">
+              <div>
+                <input
+                  autoFocus
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder="Enter 6-digit OTP"
+                  className="w-full px-4 py-3 text-center text-2xl tracking-[0.4em] font-mono font-black bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-primary-500/20 outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.length < 6}
+                className="w-full btn-primary py-4 text-xs font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {loading ? <Loader2 className="animate-spin" size={16} /> : 'Verify & Continue'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 sm:p-10 shadow-2xl relative animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setShowForgotModal(false)}
+              className="absolute right-6 top-6 text-slate-400 hover:text-slate-900 transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto mb-4">
+                <Key size={28} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Reset Password</h3>
+              <p className="text-slate-500 text-xs font-bold mt-2">
+                {forgotStep === 'email' 
+                  ? 'Enter your registered email to receive a 6-digit OTP' 
+                  : `Enter the OTP sent to ${forgotEmail}`}
+              </p>
+            </div>
+
+            {forgotError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{forgotError}</span>
+              </div>
+            )}
+
+            {forgotSuccess && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 size={16} className="shrink-0" />
+                <span>{forgotSuccess}</span>
+              </div>
+            )}
+
+            {forgotStep === 'email' ? (
+              <form onSubmit={handleSendResetEmail} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className="input-field pl-10"
+                      placeholder="name@example.com"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full btn-primary py-3.5 text-xs font-black uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Send OTP'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyForgotOtp} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 text-center">6-Digit OTP Code</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={forgotOtp}
+                    onChange={(e) => setForgotOtp(e.target.value)}
+                    placeholder="Enter OTP"
+                    className="w-full px-4 py-3 text-center text-2xl tracking-[0.4em] font-mono font-black bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading || forgotOtp.length < 6}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {forgotLoading ? <Loader2 className="animate-spin" size={16} /> : 'Verify OTP & Reset Password'}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

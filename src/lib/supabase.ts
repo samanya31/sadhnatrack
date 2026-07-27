@@ -9,6 +9,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
+/**
+ * Register a user without logging out the current active session (e.g. when an admin registers a student or center admin).
+ */
+export const registerUserWithoutLoggingIn = async (email: string, password: string, options?: any) => {
+  const tempClient = createClient(supabaseUrl || '', supabaseAnonKey || '', {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  });
+  return await tempClient.auth.signUp({
+    email,
+    password,
+    options
+  });
+};
+
 // Fetch all targets for a user
 export const fetchUserTargets = async (userId: string) => {
   const { data, error } = await supabase
