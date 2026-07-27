@@ -70,13 +70,18 @@ export const AdminBaces = () => {
       .in('role', ['admin', 'super_admin']);
 
     // 2. Fetch admin_baces junction matches
-    const { data: junctionData } = await supabase
-      .from('admin_baces')
-      .select('admin:profiles(*)')
-      .eq('bace_id', baceId);
+    let junctionAdmins: any[] = [];
+    try {
+      const { data: junctionData } = await supabase
+        .from('admin_baces')
+        .select('admin:profiles(*)')
+        .eq('bace_id', baceId);
+      junctionAdmins = (junctionData || []).map((j: any) => j.admin).filter(Boolean);
+    } catch (e) {
+      console.warn('admin_baces table query skipped:', e);
+    }
 
     const directAdmins = directData || [];
-    const junctionAdmins = (junctionData || []).map((j: any) => j.admin).filter(Boolean);
 
     // Merge and deduplicate by id
     const adminMap = new Map();

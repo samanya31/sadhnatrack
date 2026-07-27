@@ -45,17 +45,38 @@ export const AdminReports = () => {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*, bace:baces(name)')
+          .select('*, bace:baces!bace_id(name)')
           .eq('id', user.id)
           .single();
         setUserProfile(profile);
         
+        let myBaces: BACE[] = [];
+        let defaultBaceId = 'all';
+
         if (profile?.role === 'super_admin') {
           const { data: baceData } = await supabase.from('baces').select('*');
-          setBaces(baceData || []);
+          myBaces = baceData || [];
+          defaultBaceId = 'all';
+        } else if (profile?.role === 'admin') {
+          const { data: directBace } = await supabase.from('baces').select('*').eq('id', profile?.bace_id || '');
+          let junctionBaces: any[] = [];
+          try {
+            const { data: junctionData } = await supabase.from('admin_baces').select('bace:baces!bace_id(*)').eq('admin_id', user.id);
+            junctionBaces = (junctionData || []).map((j: any) => j.bace).filter(Boolean);
+          } catch (e) {
+            console.warn('admin_baces table not ready yet:', e);
+          }
+          const baceMap = new Map();
+          [...(directBace || []), ...junctionBaces].forEach(b => baceMap.set(b.id, b));
+          myBaces = Array.from(baceMap.values());
+          defaultBaceId = myBaces.length > 0 ? myBaces[0].id : (profile?.bace_id || 'all');
         } else {
-          setSelectedBace(profile?.bace_id || 'all');
+          defaultBaceId = profile?.bace_id || 'all';
         }
+
+        setBaces(myBaces);
+        setSelectedBace(defaultBaceId);
+        setUserProfile(profile);
       }
     };
     initialize();
@@ -88,7 +109,15 @@ export const AdminReports = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      setProfiles(data || []);
+      let list = data || [];
+
+      if (selectedBace === 'all' && userProfile?.role === 'admin') {
+        const myBaceIds = new Set(baces.map(b => b.id));
+        if (userProfile.bace_id) myBaceIds.add(userProfile.bace_id);
+        list = list.filter(p => p.bace_id && myBaceIds.has(p.bace_id));
+      }
+
+      setProfiles(list);
     } catch (err) {
       console.error('Error fetching profiles:', err);
     } finally {
@@ -254,7 +283,7 @@ export const AdminReports = () => {
                   />
                 </div>
 
-                {userProfile?.role === 'super_admin' && (
+                {(userProfile?.role === 'super_admin' || (userProfile?.role === 'admin' && baces.length > 0)) && (
                   <div className="flex items-center gap-4 bg-white p-1.5 pl-6 rounded-2xl border border-slate-200 shadow-sm w-full md:w-auto">
                     <div className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-widest text-[10px] whitespace-nowrap">
                       <Building2 size={16} className="text-primary-500" />
@@ -265,7 +294,11 @@ export const AdminReports = () => {
                       onChange={(e) => setSelectedBace(e.target.value)}
                       className="bg-slate-50 border-none outline-none font-black text-slate-700 py-2 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
                     >
-                      <option value="all">Global (All)</option>
+                      {userProfile?.role === 'super_admin' ? (
+                        <option value="all">Global (All)</option>
+                      ) : (
+                        <option value="all">All My Centers ({baces.length})</option>
+                      )}
                       {baces.map(b => (
                         <option key={b.id} value={b.id}>{b.name}</option>
                       ))}

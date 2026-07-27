@@ -389,7 +389,7 @@ export const StudentLog = () => {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('*, bace:baces(name)')
+          .select('*, bace:baces!bace_id(name)')
           .eq('id', user.id)
           .single();
         setUserProfile(data);

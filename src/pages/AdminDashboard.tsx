@@ -73,37 +73,53 @@ export const AdminDashboard = () => {
 
   useEffect(() => {
     const initialize = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*, bace:baces(name)')
-          .eq('id', user.id)
-          .single();
-        setUserProfile(profile);
-        
-        if (profile?.role === 'super_admin') {
-          const { data: baceData } = await supabase.from('baces').select('*');
-          setBaces(baceData || []);
-        } else if (profile?.role === 'admin') {
-          const { data: directBace } = await supabase.from('baces').select('*').eq('id', profile.bace_id || '');
-          const { data: junctionData } = await supabase.from('admin_baces').select('bace:baces(*)').eq('admin_id', user.id);
-          const junctionBaces = (junctionData || []).map((j: any) => j.bace).filter(Boolean);
-          const baceMap = new Map();
-          [...(directBace || []), ...junctionBaces].forEach(b => baceMap.set(b.id, b));
-          const myBaces = Array.from(baceMap.values());
-          setBaces(myBaces);
-          if (myBaces.length > 0) {
-            setSelectedBace(myBaces[0].id);
-            setRegData(prev => ({ ...prev, baceId: myBaces[0].id }));
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*, bace:baces!bace_id(name)')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          let myBaces: BACE[] = [];
+          let defaultBaceId = 'all';
+
+          if (profile?.role === 'super_admin') {
+            const { data: baceData } = await supabase.from('baces').select('*');
+            myBaces = baceData || [];
+            defaultBaceId = 'all';
+          } else if (profile?.role === 'admin') {
+            const { data: directBace } = await supabase.from('baces').select('*').eq('id', profile.bace_id || '');
+            let junctionBaces: any[] = [];
+            try {
+              const { data: junctionData } = await supabase.from('admin_baces').select('bace:baces!bace_id(*)').eq('admin_id', user.id);
+              junctionBaces = (junctionData || []).map((j: any) => j.bace).filter(Boolean);
+            } catch (e) {
+              console.warn('admin_baces table not ready yet:', e);
+            }
+
+            const baceMap = new Map();
+            [...(directBace || []), ...junctionBaces].forEach(b => baceMap.set(b.id, b));
+            myBaces = Array.from(baceMap.values());
+            if (myBaces.length > 0) {
+              defaultBaceId = myBaces[0].id;
+            } else {
+              defaultBaceId = profile?.bace_id || 'all';
+            }
           } else {
-            setSelectedBace(profile?.bace_id || 'all');
-            setRegData(prev => ({ ...prev, baceId: profile?.bace_id || '' }));
+            defaultBaceId = profile?.bace_id || 'all';
           }
-        } else {
-          setSelectedBace(profile?.bace_id || 'all');
-          setRegData(prev => ({ ...prev, baceId: profile?.bace_id || '' }));
+
+          setBaces(myBaces);
+          setSelectedBace(defaultBaceId);
+          setRegData(prev => ({ ...prev, baceId: defaultBaceId === 'all' ? '' : defaultBaceId }));
+          setUserProfile(profile);
         }
+      } catch (err) {
+        console.error('Error initializing dashboard:', err);
+      } finally {
+        setLoading(false);
       }
     };
     initialize();
@@ -117,35 +133,84 @@ export const AdminDashboard = () => {
   }, [userProfile, selectedBace]);
 
   const fetchProfiles = async () => {
-    let query = supabase.from('profiles').select('*').eq('role', 'student').order('full_name');
-    
-    if (selectedBace !== 'all') {
-      query = query.eq('bace_id', selectedBace);
-    }
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name');
 
-    const { data } = await query;
-    setProfiles(data || []);
+      if (error) {
+        console.error('fetchProfiles DB error:', error.message, error.code);
+        // Show error in UI for debugging
+        setProfiles([]);
+        return;
+      }
+
+      console.log('fetchProfiles raw count:', data?.length, 'selectedBace:', selectedBace);
+
+      let list = (data || []).filter(p => p.role === 'student');
+
+      if (selectedBace !== 'all') {
+        list = list.filter(p => p.bace_id === selectedBace);
+      } else if (userProfile?.role === 'admin') {
+        const myBaceIds = new Set(baces.map(b => b.id));
+        if (userProfile.bace_id) myBaceIds.add(userProfile.bace_id);
+        list = list.filter(p => p.bace_id && myBaceIds.has(p.bace_id));
+      }
+
+      console.log('fetchProfiles final count:', list.length);
+      setProfiles(list);
+    } catch (err: any) {
+      console.error('fetchProfiles exception:', err?.message || err);
+    }
   };
 
   const fetchEntries = async () => {
     setLoading(true);
     try {
-      let query = supabase
+      let data: any[] = [];
+      
+      // 1. Try relational query
+      const { data: joinData, error: joinError } = await supabase
         .from('sadhana_entries')
         .select(`
           *,
-          user:profiles!inner(full_name, email, bace_id)
+          user:profiles(full_name, email, bace_id, role)
         `)
         .order('date', { ascending: false });
 
-      if (selectedBace !== 'all') {
-        query = query.eq('user.bace_id', selectedBace);
+      if (!joinError && joinData) {
+        data = joinData;
+      } else {
+        // 2. Fallback: Separate queries if relationship join fails
+        const { data: rawEntries } = await supabase
+          .from('sadhana_entries')
+          .select('*')
+          .order('date', { ascending: false });
+
+        const { data: rawProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, bace_id, role');
+
+        const profileMap = new Map((rawProfiles || []).map(p => [p.id, p]));
+        data = (rawEntries || []).map(entry => ({
+          ...entry,
+          user: profileMap.get(entry.user_id) || { full_name: 'Student', email: '', bace_id: null, role: 'student' }
+        }));
       }
 
-      const { data, error } = await query;
+      // Filter out activity log entries belonging to admins or super admins
+      data = data.filter(e => e.user?.role !== 'admin' && e.user?.role !== 'super_admin');
 
-      if (error) throw error;
-      setEntries(data || []);
+      if (selectedBace !== 'all') {
+        data = data.filter(e => e.user?.bace_id === selectedBace);
+      } else if (userProfile?.role === 'admin') {
+        const myBaceIds = new Set(baces.map(b => b.id));
+        if (userProfile.bace_id) myBaceIds.add(userProfile.bace_id);
+        data = data.filter(e => e.user?.bace_id && myBaceIds.has(e.user.bace_id));
+      }
+
+      setEntries(data);
     } catch (err) {
       console.error('Error fetching entries:', err);
     } finally {
@@ -620,7 +685,7 @@ export const AdminDashboard = () => {
               </p>
             </div>
 
-            {userProfile?.role === 'super_admin' && (
+            {(userProfile?.role === 'super_admin' || (userProfile?.role === 'admin' && baces.length > 0)) && (
               <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
                 <div className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-widest text-[10px]">
                   <Building2 size={16} className="text-primary-500" />
@@ -631,7 +696,11 @@ export const AdminDashboard = () => {
                   onChange={(e) => setSelectedBace(e.target.value)}
                   className="bg-slate-50 border-none outline-none font-black text-slate-700 py-3 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
                 >
-                  <option value="all">Global View (All BACEs)</option>
+                  {userProfile?.role === 'super_admin' ? (
+                    <option value="all">Global View (All BACEs)</option>
+                  ) : (
+                    <option value="all">All My Centers ({baces.length})</option>
+                  )}
                   {baces.map(b => (
                       <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
@@ -679,8 +748,9 @@ export const AdminDashboard = () => {
                       </button>
                     ))}
                     {profiles.length === 0 && (
-                      <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
-                        <p className="text-slate-400 font-bold">No students found in this center.</p>
+                      <div className="col-span-full py-16 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 flex flex-col items-center justify-center p-6">
+                        <p className="text-slate-500 font-bold text-lg mb-2">No students found in this center.</p>
+                        <p className="text-slate-400 text-xs max-w-sm mb-6">Register students using the "Register User" button at the top of the page, or run the SQL policies in your Supabase dashboard to fix RLS.</p>
                       </div>
                     )}
                   </div>

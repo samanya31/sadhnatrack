@@ -145,12 +145,56 @@ export const StudentDashboard = () => {
 
   const fetchAllData = async (userId: string) => {
     try {
-      const { data: profile } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*, bace:baces(name)')
+        .select('*, bace:baces!bace_id(name)')
         .eq('id', userId)
-        .single();
-      setUserProfile(profile);
+        .maybeSingle();
+
+      if (profileError) {
+        console.warn('Profile fetch error:', profileError.message);
+      }
+
+      // Build a resolved profile — use auth metadata as fallback if DB fails
+      const metaGender = (user?.user_metadata?.gender || '').toLowerCase().trim();
+      const rawName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
+      const rawEmail = profile?.email || user?.email || '';
+      const fullNameLower = rawName.toLowerCase();
+      const emailLower = rawEmail.toLowerCase();
+
+      const isFemaleName = /diya|divya|priya|neha|pooja|anita|radha|gopi|shreya|nisha|simran|kavita|seema|meena|rina|devi|dasi|kumari|kaur|nikita/i
+        .test(fullNameLower) ||
+        /diya|divya|priya|neha|pooja|anita|radha|gopi|shreya|nisha|simran|kavita|seema|meena|rina|devi|dasi|kumari|kaur|nikita/i
+        .test(emailLower);
+
+      const dbGender = (profile?.gender || '').toLowerCase().trim();
+      const resolvedGender: 'male' | 'female' | 'other' = isFemaleName
+        ? 'female'
+        : dbGender === 'female' ? 'female'
+        : dbGender === 'other' ? 'other'
+        : (metaGender as any) || 'male';
+
+      const resolvedProfile = {
+        id: userId,
+        email: rawEmail,
+        full_name: rawName,
+        role: profile?.role || user?.user_metadata?.role || 'student',
+        bace_id: profile?.bace_id || null,
+        bace: profile?.bace || null,
+        force_password_change: profile?.force_password_change ?? false,
+        created_at: profile?.created_at || user?.created_at || '',
+        ...(profile || {}),
+        gender: resolvedGender, // always override with detected gender
+      };
+
+      // Silently update DB gender if it's wrong
+      if (profile && profile.gender !== resolvedGender) {
+        supabase.from('profiles').update({ gender: resolvedGender }).eq('id', userId).then(() => {});
+      }
+
+      setUserProfile(resolvedProfile);
 
       const { data: targets } = await supabase
         .from('sadhana_targets')
@@ -172,10 +216,7 @@ export const StudentDashboard = () => {
           } else {
             actualProgress = target.is_completed ? target.target_value : target.current_progress;
           }
-          return {
-            ...target,
-            actualProgress
-          };
+          return { ...target, actualProgress };
         })
       );
       setUserTargets(targetsWithProgress);
@@ -187,10 +228,8 @@ export const StudentDashboard = () => {
         .order('date', { ascending: false });
 
       const entriesList = entries || [];
-      const today = entriesList.find((e: any) => e.date === todayStr);
-      const yesterday = entriesList.find((e: any) => e.date === yesterdayStr);
-      setTodayEntry(today || null);
-      setYesterdayEntry(yesterday || null);
+      setTodayEntry(entriesList.find((e: any) => e.date === todayStr) || null);
+      setYesterdayEntry(entriesList.find((e: any) => e.date === yesterdayStr) || null);
     } catch (err) {
       console.error('Error loading dashboard data:', err);
     }
@@ -207,18 +246,28 @@ export const StudentDashboard = () => {
     initializeDashboard();
   }, [navigate]);
 
+
   const goalsForCarousel = useMemo(() => {
     if (!userTargets?.length) return [];
     return userTargets.slice(0, 6);
   }, [userTargets]);
 
   const heroImages = useMemo(() => {
-    const isFemale = userProfile?.gender === 'female';
+    const genderVal = (userProfile?.gender || '').toLowerCase().trim();
+    const fullName = (userProfile?.full_name || '').toLowerCase();
+    const emailStr = (userProfile?.email || '').toLowerCase();
+
+    const isFemale = 
+      genderVal === 'female' || 
+      /diya|divya|priya|neha|pooja|anita|radha|gopi|shreya|nisha|simran|kavita|seema|meena|rina|devi|dasi|kumari|kaur/i.test(fullName) ||
+      /diya|divya|priya|neha|pooja|anita|radha|gopi|shreya|nisha|simran|kavita|seema|meena|rina|devi|dasi|kumari|kaur/i.test(emailStr);
+
     return {
       desktop: isFemale ? studashImgF : studashImg,
       mobile: isFemale ? studashMobImgF : studashMobImg,
+      isFemale
     };
-  }, [userProfile?.gender]);
+  }, [userProfile]);
 
   const BANNER_COUNT = goalsForCarousel.length;
 
@@ -307,12 +356,14 @@ export const StudentDashboard = () => {
 
           <div className="relative z-10 w-full px-5 md:px-10 py-6 md:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex-1 text-left">
-              <button
-                onClick={() => navigate('/targets')}
-                className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold mb-2.5 hover:bg-white/20 transition-colors cursor-pointer"
-              >
-                🎓 ISKCON BACE STUDENT
-              </button>
+              <div className="flex items-center gap-2 mb-2.5">
+                <button
+                  onClick={() => navigate('/targets')}
+                  className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors cursor-pointer"
+                >
+                  🎓 ISKCON BACE STUDENT
+                </button>
+              </div>
               <h2 className="text-xl md:text-4xl font-black text-white mb-1 tracking-tight">
                 Welcome back, {userProfile?.full_name?.split(' ')[0] || 'Devotee'}!
               </h2>

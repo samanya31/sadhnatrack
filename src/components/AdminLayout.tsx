@@ -29,14 +29,42 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
 
   useEffect(() => {
     const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*, bace:baces(name)')
-          .eq('id', user.id)
-          .single();
-        setUserProfile(profile);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          let { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          const metaRole = user.user_metadata?.role;
+          const userRole = profile?.role || metaRole || 'super_admin';
+
+          if (!profile) {
+            profile = {
+              id: user.id,
+              email: user.email || '',
+              full_name: user.user_metadata?.full_name || 'Administrator',
+              role: userRole,
+              bace_id: user.user_metadata?.bace_id || null,
+              created_at: user.created_at
+            } as any;
+          }
+
+          if (profile && profile.bace_id) {
+            const { data: bace } = await supabase
+              .from('baces')
+              .select('name')
+              .eq('id', profile.bace_id)
+              .maybeSingle();
+            if (bace) profile.bace = bace;
+          }
+
+          setUserProfile(profile);
+        }
+      } catch (err) {
+        console.error('Error loading admin profile:', err);
       }
     };
     loadProfile();
@@ -55,9 +83,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
     { id: 'change-password', name: 'Change Password', icon: Lock, description: 'Update password', path: '/change-password', roles: ['admin', 'super_admin'] },
   ] as const;
 
-  const filteredNavItems = navItems.filter(item => 
-    userProfile && (item.roles as readonly string[]).includes(userProfile.role)
-  );
+  const currentRole = userProfile?.role ?? null;
+  const filteredNavItems = currentRole
+    ? navItems.filter(item => (item.roles as readonly string[]).includes(currentRole))
+    : [];
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col">

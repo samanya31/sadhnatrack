@@ -26,16 +26,18 @@ function App() {
       const metadataRole =
         (currentSession.user.user_metadata?.role as string | undefined) ||
         (currentSession.user.app_metadata?.role as string | undefined);
-      return dbRole || metadataRole || 'student';
+      // DB role always wins. Fall back to metadata only when DB has no result.
+      // NEVER default to 'student' blindly — admins get stranded in student view.
+      return dbRole || metadataRole || null;
     };
 
     const fetchRole = async (currentSession: Session) => {
       if (!mounted) return;
 
-      // Resolve quickly from session metadata/default to avoid spinner lock.
-      setRole(resolveRoleFromSession(currentSession));
+      // Don't pre-set from metadata alone — wait for DB result.
+      // Show loading spinner until DB confirms the real role.
+      setRole(null);
       setForcePasswordChange(false);
-      setLoading(false);
 
       try {
         const roleQuery = supabase
@@ -51,20 +53,31 @@ function App() {
         });
 
         const result = await Promise.race([roleQuery, timeoutPromise]);
-        if (!mounted || result === null) return;
+        if (!mounted) return;
+
+        if (result === null) {
+          // Timeout: fall back to metadata role or student
+          const fallback = resolveRoleFromSession(currentSession) || 'student';
+          setRole(fallback);
+          setLoading(false);
+          return;
+        }
 
         if (result.error) throw result.error;
 
         const dbRole = result.data?.role;
         const dbForceChange = result.data?.force_password_change;
-        if (dbRole) {
-          setRole(resolveRoleFromSession(currentSession, dbRole));
-        }
+        // DB role is the truth — use it unconditionally
+        setRole(dbRole || resolveRoleFromSession(currentSession) || 'student');
         if (dbForceChange !== undefined && dbForceChange !== null) {
           setForcePasswordChange(dbForceChange);
         }
       } catch {
-        // Ignore DB role failures; fallback role already applied above.
+        // DB failed — fall back to metadata, never blank
+        const fallback = resolveRoleFromSession(currentSession) || 'student';
+        setRole(fallback);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
