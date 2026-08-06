@@ -235,9 +235,20 @@ export const Login = () => {
     setForgotError(null);
     setForgotSuccess(null);
 
-    const cleanEmail = forgotEmail.trim();
+    const cleanEmail = forgotEmail.trim().toLowerCase();
 
     try {
+      // 1. Check if email exists in profiles using RPC
+      const { data: exists, error: rpcErr } = await supabase.rpc('check_email_exists', {
+        p_email: cleanEmail
+      });
+
+      if (rpcErr) console.warn('RPC check_email_exists error:', rpcErr);
+
+      if (!exists) {
+        throw new Error('No account found with this email address. Please check the spelling or register a new account.');
+      }
+
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
       // Store in password_otps table
@@ -250,14 +261,14 @@ export const Login = () => {
 
       const apiKey = import.meta.env.VITE_BREVO_API_KEY;
       if (!apiKey) {
-        throw new Error('VITE_BREVO_API_KEY is missing from your .env file! Please add VITE_BREVO_API_KEY=your_key in .env and restart your server.');
+        throw new Error('VITE_BREVO_API_KEY is missing from your .env file!');
       }
 
       // Send OTP via Brevo REST API
       await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
 
       setForgotStep('otp');
-      setForgotSuccess(`A 6-digit OTP code has been sent via Brevo to ${cleanEmail}. Check your inbox.`);
+      setForgotSuccess(`A 6-digit OTP code has been sent to ${cleanEmail}. Check your inbox.`);
     } catch (err: any) {
       setForgotError(err.message || 'Failed to send OTP code.');
     } finally {
