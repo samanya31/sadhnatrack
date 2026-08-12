@@ -21,8 +21,7 @@ import {
   MessageSquare,
   Hammer,
   Building2,
-  MailWarning,
-  Send
+  MailWarning
 } from 'lucide-react';
 import { sendBrevoMissingSadhanaDigest } from '../lib/brevo';
 import { format } from 'date-fns';
