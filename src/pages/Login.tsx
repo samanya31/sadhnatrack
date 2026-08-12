@@ -387,7 +387,7 @@ export const Login = () => {
           border-slate-100
         ">
           {/* LEFT LOGIN / SIGNUP PANEL */}
-          <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto">
+          <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto relative">
             
             {/* Mobile Banner Illustration */}
             <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6 bg-[#FFF3E6] animate-in fade-in duration-700">
@@ -399,7 +399,7 @@ export const Login = () => {
               <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent z-10"></div>
             </div>
 
-            <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto">
+            <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto relative z-10">
               
               {/* Logo & Header */}
               <div className="flex items-center gap-3 mb-6">
@@ -469,7 +469,7 @@ export const Login = () => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="name@example.com"
                       />
                     </div>
@@ -499,7 +499,7 @@ export const Login = () => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="••••••••"
                       />
                     </div>
@@ -526,7 +526,7 @@ export const Login = () => {
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="John Doe"
                       />
                     </div>
@@ -556,7 +556,7 @@ export const Login = () => {
                               setOtpSent(false);
                             }
                           }}
-                          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                           placeholder="name@example.com"
                         />
                       </div>
@@ -611,7 +611,7 @@ export const Login = () => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="••••••••"
                       />
                     </div>
@@ -624,7 +624,7 @@ export const Login = () => {
                         required
                         value={gender}
                         onChange={(e) => setGender(e.target.value)}
-                        className="w-full px-3 py-3 bg-slate-50 border border-slate-200 outline-none rounded-xl text-slate-900 font-bold text-xs capitalize focus:bg-white"
+                        className="w-full px-3 py-3 bg-white border border-slate-200 outline-none rounded-xl text-slate-900 font-bold text-xs capitalize shadow-xs"
                       >
                         <option value="male">Male</option>
                         <option value="female">Female</option>
@@ -641,7 +641,7 @@ export const Login = () => {
                           required
                           value={baceCode}
                           onChange={(e) => setBaceCode(e.target.value)}
-                          className="w-full pl-9 pr-3 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-bold uppercase bg-slate-50/50 focus:bg-white"
+                          className="w-full pl-9 pr-3 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-bold uppercase bg-white shadow-xs"
                           placeholder="DELHI26"
                         />
                       </div>
@@ -668,11 +668,20 @@ export const Login = () => {
             </div>
 
             {/* Pinned Left Footer */}
-            <div className="mt-auto pt-6 border-t border-slate-100">
+            <div className="mt-auto pt-6 border-t border-slate-100 relative z-10">
               <p className="text-[11px] font-semibold text-slate-400 select-none">
                 © {new Date().getFullYear()} Sadhana Track • Spiritual Growth Platform<br />
                 <span className="text-orange-600 font-extrabold">BACE Community & Habit Telemetry</span>
               </p>
+            </div>
+
+            {/* Bottom Right Corner ISKCON Logo Watermark */}
+            <div className="absolute bottom-0 right-0 pointer-events-none z-0 overflow-hidden select-none">
+              <img
+                src={iskconLogo}
+                alt="ISKCON Logo Watermark"
+                className="w-40 sm:w-48 lg:w-56 h-auto object-contain opacity-12 translate-x-3 translate-y-3"
+              />
             </div>
           </div>
 
