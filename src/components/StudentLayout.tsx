@@ -15,6 +15,8 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+import iskconLogo from '../assets/iskcon img.png';
+
 interface StudentLayoutProps {
   children: React.ReactNode;
 }
@@ -60,8 +62,8 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
             </button>
             
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/dashboard')}>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-500/20">
-                <ClipboardList size={24} className="sm:size-28" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-xl flex items-center justify-center p-1 shadow-md border border-slate-100 overflow-hidden">
+                <img src={iskconLogo} alt="ISKCON Logo" className="w-full h-full object-contain" />
               </div>
               <div className="flex flex-col justify-center">
                 <h2 className="text-[14px] sm:text-[18px] font-black text-slate-900 leading-tight tracking-tight">

@@ -399,12 +399,16 @@ export const AdminDashboard = () => {
 
   // Removed unused filteredEntries
 
-  const studentEntries = selectedStudent 
-    ? entries.filter(e => e.user_id === selectedStudent)
+  const targetUserId = selectedStudent 
+    ? (profiles.find(p => p.id === selectedStudent)?.id || entries.find(e => e.id === selectedStudent)?.user_id || selectedStudent)
+    : null;
+
+  const studentEntries = targetUserId 
+    ? entries.filter(e => e.user_id === targetUserId)
     : [];
 
-  const selectedDateEntry = studentEntries.find(e => e.date === filterDate);
-  const selectedProfile = profiles.find(p => p.id === selectedStudent);
+  const selectedDateEntry = studentEntries.find(e => e.date === filterDate) || studentEntries[0];
+  const selectedProfile = profiles.find(p => p.id === targetUserId) || entries.find(e => e.user_id === targetUserId)?.user;
 
   if (selectedStudent) {
     return (
@@ -882,8 +886,11 @@ export const AdminDashboard = () => {
                               </td>
                               <td className="px-8 py-6 text-right">
                                 <button 
-                                  onClick={() => setSelectedStudent(entry.id)}
-                                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all shadow-lg shadow-slate-900/10 active:scale-95"
+                                  onClick={() => {
+                                    setSelectedStudent(entry.user_id || entry.id);
+                                    if (entry.date) setFilterDate(entry.date);
+                                  }}
+                                  className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary-600 transition-all shadow-lg shadow-slate-900/10 active:scale-95 cursor-pointer"
                                 >
                                   View Log
                                 </button>

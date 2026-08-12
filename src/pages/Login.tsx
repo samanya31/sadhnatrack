@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendBrevoOtpEmail } from '../lib/brevo';
-import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, ArrowLeft, Key, ShieldCheck, X } from 'lucide-react';
+import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, Key, ShieldCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import loginImg from '../assets/loginimg.png';
+import iskconLogo from '../assets/iskcon img.png';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -355,283 +357,331 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#fdfaf5] p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-200/30 rounded-full blur-[100px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-200/30 rounded-full blur-[100px]" />
+    <div className="relative min-h-screen overflow-hidden font-sans">
+      {/* ===== PAGE BACKGROUND SPLIT ===== */}
+      <div className="absolute inset-0 flex flex-col lg:flex-row">
+        {/* LEFT GREY HALF */}
+        <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-[#F2F5FA]" />
 
-      <div className="w-full max-w-md z-10">
-        <div className="glass-card rounded-3xl p-6 sm:p-10 border border-white shadow-2xl relative">
-          
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center text-white shadow-lg rotate-3">
-              <Sparkles size={32} />
+        {/* RIGHT BLUE HALF */}
+        <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-[#EDF2FF]" />
+      </div>
+
+      {/* ===== CENTER FLOATING CARD ===== */}
+      <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 z-10">
+        <div className="
+          w-full
+          max-w-[1360px]
+          h-auto
+          lg:h-[88vh]
+          min-h-[640px]
+          bg-white
+          rounded-[2.5rem]
+          shadow-[0_40px_80px_rgba(0,0,0,0.08)]
+          overflow-hidden
+          flex
+          flex-col
+          lg:flex-row
+          border
+          border-slate-100
+        ">
+          {/* LEFT LOGIN / SIGNUP PANEL */}
+          <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto">
+            
+            {/* Mobile Banner Illustration */}
+            <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6">
+              <img
+                src={loginImg}
+                alt="Sadhana Track Login"
+                className="w-full h-full object-cover object-center"
+              />
             </div>
-          </div>
 
-          <div className="text-center mb-8">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">
-              {isSignUp ? 'Create Account' : 'Welcome Back'}
-            </h1>
-            <p className="text-slate-500 text-sm font-medium">
-              {isSignUp ? 'Register to start tracking your spiritual progress' : 'Track your spiritual progress every day'}
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-semibold flex items-start gap-2">
-              <AlertCircle size={18} className="shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {successMessage && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-xl text-sm font-semibold flex items-start gap-2">
-              <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
-              <span>{successMessage}</span>
-            </div>
-          )}
-
-          {!isSignUp ? (
-            /* Login Form */
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Email Address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input-field pl-10"
-                    placeholder="name@example.com"
-                  />
+            <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto">
+              
+              {/* Logo & Header */}
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-1 shadow-lg shadow-orange-500/10 border border-slate-100 overflow-hidden">
+                  <img src={iskconLogo} alt="ISKCON Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Sadhana Track</h2>
+                  <p className="text-[10px] font-extrabold text-orange-600 uppercase tracking-widest">Spiritual Growth Platform</p>
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between ml-1 mb-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setForgotEmail(email);
-                      setForgotStep('email');
-                      setForgotError(null);
-                      setForgotSuccess(null);
-                      setShowForgotModal(true);
-                    }}
-                    className="text-[10px] font-black text-primary-600 uppercase tracking-widest hover:underline cursor-pointer"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-field pl-10"
-                    placeholder="••••••••"
-                  />
-                </div>
+              <div className="mb-6">
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                  {isSignUp ? 'Create Account' : 'Welcome Back'}
+                </h1>
+                <p className="text-slate-500 text-sm font-medium mt-1">
+                  {isSignUp ? 'Register to start tracking your daily spiritual progress' : 'Enter your credentials to access your dashboard'}
+                </p>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 cursor-pointer"
-              >
-                {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-          ) : (
-            /* Registration Form */
-            <form onSubmit={handleSignUp} className="space-y-5">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Full Name</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="input-field pl-10"
-                    placeholder="John Doe"
-                  />
-                </div>
+              {/* Mode Switcher Pills */}
+              <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-6 border border-slate-200/50">
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(false); setError(null); setSuccessMessage(null); }}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                    !isSignUp ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(true); setError(null); setSuccessMessage(null); }}
+                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                    isSignUp ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Create Account
+                </button>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between ml-1 mb-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
-                  {isEmailVerified && email.trim() === verifiedEmail && (
-                    <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      ✓ Email Verified
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      disabled={isEmailVerified && email.trim() === verifiedEmail}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (isEmailVerified && e.target.value.trim() !== verifiedEmail) {
-                          setIsEmailVerified(false);
-                          setOtpSent(false);
-                        }
-                      }}
-                      className="input-field pl-10"
-                      placeholder="name@example.com"
-                    />
-                  </div>
-                  {!(isEmailVerified && email.trim() === verifiedEmail) && (
-                    <button
-                      type="button"
-                      disabled={sendingOtp || !email.includes('@')}
-                      onClick={handleSendSignupOtp}
-                      className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-primary-50 text-primary-600 hover:bg-primary-100 rounded-2xl border border-primary-200 transition-all shrink-0 cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-                    >
-                      {sendingOtp ? <Loader2 className="animate-spin" size={14} /> : null}
-                      {otpSent ? 'Resend OTP' : 'Send OTP'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Inline OTP Verification Box */}
-              {otpSent && !(isEmailVerified && email.trim() === verifiedEmail) && (
-                <div className="bg-orange-50/90 border border-orange-200/80 p-3.5 rounded-2xl space-y-2 animate-in fade-in duration-300">
-                  <p className="text-[11px] font-bold text-orange-800 flex items-center gap-1.5">
-                    <ShieldCheck size={16} className="text-orange-600 shrink-0" />
-                    Enter 6-digit OTP code sent to <span className="font-black text-orange-950 underline">{email}</span>:
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={signupOtpInput}
-                      onChange={(e) => setSignupOtpInput(e.target.value)}
-                      placeholder="6-Digit OTP"
-                      className="px-3 py-2 text-center text-base font-mono font-black bg-white border border-orange-200 rounded-xl focus:ring-2 focus:ring-primary-500/20 outline-none flex-1 tracking-[0.3em]"
-                    />
-                    <button
-                      type="button"
-                      disabled={verifyingOtp || signupOtpInput.trim().length < 6}
-                      onClick={handleVerifySignupInlineOtp}
-                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                    >
-                      {verifyingOtp ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
-                    </button>
-                  </div>
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-2xl text-xs font-bold flex items-start gap-2.5">
+                  <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
               )}
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-field pl-10"
-                    placeholder="••••••••"
-                  />
+              {successMessage && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-2xl text-xs font-bold flex items-start gap-2.5">
+                  <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                  <span>{successMessage}</span>
                 </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Gender</label>
-                  <select
-                    required
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="input-field py-[11px] bg-slate-50 border-none outline-none rounded-2xl w-full text-slate-900 font-bold"
-                  >
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Center Code</label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                      type="text"
-                      required
-                      value={baceCode}
-                      onChange={(e) => setBaceCode(e.target.value)}
-                      className="input-field pl-10"
-                      placeholder="e.g. DELHI26"
-                    />
+              {!isSignUp ? (
+                /* Login Form */
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        placeholder="name@example.com"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading || !(isEmailVerified && email.trim() === verifiedEmail)}
-                  className="w-full btn-primary py-3.5 flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
-                  {loading ? 'Creating Account...' : 'Sign Up'}
-                </button>
-                {!(isEmailVerified && email.trim() === verifiedEmail) && (
-                  <p className="text-center text-[10px] font-bold text-slate-400 mt-2">
-                    🔒 Verify your email address via OTP above to unlock Sign Up
-                  </p>
-                )}
-              </div>
-            </form>
-          )}
+                  <div>
+                    <div className="flex items-center justify-between ml-1 mb-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForgotEmail(email);
+                          setForgotStep('email');
+                          setForgotError(null);
+                          setForgotSuccess(null);
+                          setShowForgotModal(true);
+                        }}
+                        className="text-[11px] font-bold text-orange-600 hover:text-orange-700 cursor-pointer transition-colors"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
 
-          <div className="mt-8 pt-8 border-t border-slate-100 text-center">
-            {!isSignUp ? (
-              <p className="text-slate-500 text-sm font-medium">
-                Don't have an account?{' '}
-                <span
-                  onClick={() => {
-                    setIsSignUp(true);
-                    setError(null);
-                    setSuccessMessage(null);
-                  }}
-                  className="text-primary-600 font-black cursor-pointer hover:underline"
-                >
-                  Register Here
-                </span>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-4"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={18} /> : <LogIn size={18} />}
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </button>
+                </form>
+              ) : (
+                /* Registration Form */
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Full Name</label>
+                    <div className="relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="text"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between ml-1 mb-1.5">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+                      {isEmailVerified && email.trim() === verifiedEmail && (
+                        <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          ✓ Email Verified
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          disabled={isEmailVerified && email.trim() === verifiedEmail}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (isEmailVerified && e.target.value.trim() !== verifiedEmail) {
+                              setIsEmailVerified(false);
+                              setOtpSent(false);
+                            }
+                          }}
+                          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                          placeholder="name@example.com"
+                        />
+                      </div>
+                      {!(isEmailVerified && email.trim() === verifiedEmail) && (
+                        <button
+                          type="button"
+                          disabled={sendingOtp || !email.includes('@')}
+                          onClick={handleSendSignupOtp}
+                          className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-xl border border-orange-200 transition-all shrink-0 cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                        >
+                          {sendingOtp ? <Loader2 className="animate-spin" size={14} /> : null}
+                          {otpSent ? 'Resend OTP' : 'Send OTP'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Inline OTP Verification Box */}
+                  {otpSent && !(isEmailVerified && email.trim() === verifiedEmail) && (
+                    <div className="bg-orange-50/90 border border-orange-200/80 p-3.5 rounded-2xl space-y-2 animate-in fade-in duration-300">
+                      <p className="text-[11px] font-bold text-orange-800 flex items-center gap-1.5">
+                        <ShieldCheck size={16} className="text-orange-600 shrink-0" />
+                        Enter 6-digit OTP code sent to <span className="font-black text-orange-950 underline">{email}</span>:
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={signupOtpInput}
+                          onChange={(e) => setSignupOtpInput(e.target.value)}
+                          placeholder="6-Digit OTP"
+                          className="px-3 py-2 text-center text-base font-mono font-black bg-white border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 outline-none flex-1 tracking-[0.3em]"
+                        />
+                        <button
+                          type="button"
+                          disabled={verifyingOtp || signupOtpInput.trim().length < 6}
+                          onClick={handleVerifySignupInlineOtp}
+                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          {verifyingOtp ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-slate-50/50 focus:bg-white"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Gender</label>
+                      <select
+                        required
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="w-full px-3 py-3 bg-slate-50 border border-slate-200 outline-none rounded-xl text-slate-900 font-bold text-xs capitalize focus:bg-white"
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Center Code</label>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                          type="text"
+                          required
+                          value={baceCode}
+                          onChange={(e) => setBaceCode(e.target.value)}
+                          className="w-full pl-9 pr-3 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-bold uppercase bg-slate-50/50 focus:bg-white"
+                          placeholder="DELHI26"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading || !(isEmailVerified && email.trim() === verifiedEmail)}
+                      className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                      {loading ? 'Creating Account...' : 'Sign Up'}
+                    </button>
+                    {!(isEmailVerified && email.trim() === verifiedEmail) && (
+                      <p className="text-center text-[10px] font-bold text-slate-400 mt-2">
+                        🔒 Verify your email address via OTP above to unlock Sign Up
+                      </p>
+                    )}
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* Pinned Left Footer */}
+            <div className="mt-auto pt-6 border-t border-slate-100">
+              <p className="text-[11px] font-semibold text-slate-400 select-none">
+                © {new Date().getFullYear()} Sadhana Track • Spiritual Growth Platform<br />
+                <span className="text-orange-600 font-extrabold">BACE Community & Habit Telemetry</span>
               </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSignUp(false);
-                  setError(null);
-                  setSuccessMessage(null);
-                }}
-                className="flex items-center justify-center gap-2 text-slate-400 hover:text-slate-600 font-black uppercase tracking-widest text-[10px] mx-auto transition-all cursor-pointer"
-              >
-                <ArrowLeft size={14} />
-                Back to Sign In
-              </button>
-            )}
+            </div>
           </div>
 
+          {/* RIGHT PANEL - SINGLE FULL BOX IMAGE */}
+          <div className="hidden lg:block w-1/2 relative overflow-hidden bg-[#EAF2FB]">
+            <img
+              src={loginImg}
+              alt="Sadhana Track Login"
+              className="w-full h-full object-cover object-center"
+            />
+          </div>
         </div>
       </div>
 

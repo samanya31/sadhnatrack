@@ -3,6 +3,8 @@ import { LogOut, ClipboardList, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+import iskconLogo from '../assets/iskcon img.png';
+
 interface LayoutProps {
   children: React.ReactNode;
   userRole?: string;
@@ -23,8 +25,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, userRole }) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white">
-                  <ClipboardList size={20} />
+                <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center p-0.5 shadow-sm border border-slate-100 overflow-hidden">
+                  <img src={iskconLogo} alt="ISKCON Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-xl font-bold bg-gradient-to-r from-primary-600 to-orange-600 bg-clip-text text-transparent">
                   Sadhana Track
