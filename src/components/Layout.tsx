@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, ClipboardList, ShieldCheck } from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 

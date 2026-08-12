@@ -4,6 +4,7 @@ import { sendBrevoOtpEmail } from '../lib/brevo';
 import { LogIn, Mail, Lock, Loader2, Sparkles, User, KeyRound, CheckCircle2, AlertCircle, Key, ShieldCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import loginImg from '../assets/loginimg.png';
+import loginImgRes from '../assets/loginimgres.png';
 import iskconLogo from '../assets/iskcon img.png';
 
 export const Login = () => {
@@ -389,12 +390,13 @@ export const Login = () => {
           <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto">
             
             {/* Mobile Banner Illustration */}
-            <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6">
+            <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6 bg-[#EAF2FB] animate-in fade-in duration-700">
               <img
-                src={loginImg}
+                src={loginImgRes}
                 alt="Sadhana Track Login"
-                className="w-full h-full object-cover object-center"
+                className="w-full h-full object-cover object-center transition-opacity duration-500 animate-fade-in"
               />
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent z-10"></div>
             </div>
 
             <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto">

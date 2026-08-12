@@ -21,9 +21,10 @@ interface AdminLayoutProps {
   children: React.ReactNode;
   activeTab?: 'logs' | 'students';
   setActiveTab?: (tab: 'logs' | 'students') => void;
+  onNavigate?: () => void;
 }
 
-export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, setActiveTab }) => {
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, setActiveTab, onNavigate }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -184,6 +185,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
                     <button
                       key={item.id}
                       onClick={() => {
+                        onNavigate?.();
                         if (location.pathname !== item.path) {
                           navigate(item.path, { state: { targetTab: item.id } });
                         } else if (item.path === '/admin') {

@@ -49,6 +49,11 @@ export const AdminDashboard = () => {
       setActiveTab(location.state.targetTab);
     }
   }, [location.pathname, location.state]);
+
+  useEffect(() => {
+    setSelectedStudent(null);
+    setDrilldownStudent(null);
+  }, [activeTab]);
   const [entries, setEntries] = useState<SadhanaEntry[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -412,7 +417,7 @@ export const AdminDashboard = () => {
 
   if (selectedStudent) {
     return (
-      <AdminLayout>
+      <AdminLayout activeTab={activeTab} setActiveTab={setActiveTab} onNavigate={() => { setSelectedStudent(null); setDrilldownStudent(null); }}>
         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 px-1">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <button onClick={() => setSelectedStudent(null)} className="flex items-center gap-2 text-slate-500 hover:text-primary-600 font-bold group">
@@ -726,7 +731,7 @@ export const AdminDashboard = () => {
   }
 
   return (
-    <AdminLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+    <AdminLayout activeTab={activeTab} setActiveTab={setActiveTab} onNavigate={() => { setSelectedStudent(null); setDrilldownStudent(null); }}>
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="animate-spin text-primary-600" size={48} />

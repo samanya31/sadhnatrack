@@ -6,7 +6,6 @@ import {
   Menu, 
   X, 
   ChevronRight,
-  ClipboardList,
   History,
   Target,
   Home,
