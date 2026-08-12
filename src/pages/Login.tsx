@@ -402,10 +402,8 @@ export const Login = () => {
             <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto relative z-10">
               
               {/* Logo & Header */}
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center p-1 shadow-lg shadow-orange-500/10 border border-slate-100 overflow-hidden">
-                  <img src={iskconLogo} alt="ISKCON Logo" className="w-full h-full object-contain" />
-                </div>
+              <div className="flex items-center gap-3.5 mb-6">
+                <img src={iskconLogo} alt="ISKCON Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain shrink-0" />
                 <div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Sadhana Track</h2>
                   <p className="text-[10px] font-extrabold text-orange-600 uppercase tracking-widest">Spiritual Growth Platform</p>
