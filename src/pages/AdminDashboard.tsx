@@ -20,8 +20,11 @@ import {
   Moon,
   MessageSquare,
   Hammer,
-  Building2
+  Building2,
+  MailWarning,
+  Send
 } from 'lucide-react';
+import { sendBrevoMissingSadhanaDigest } from '../lib/brevo';
 import { format } from 'date-fns';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -70,6 +73,72 @@ export const AdminDashboard = () => {
   });
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
+
+  const [sendingDigest, setSendingDigest] = useState(false);
+  const [digestStatusMessage, setDigestStatusMessage] = useState<string | null>(null);
+
+  const handleSendDigestEmail = async () => {
+    if (!userProfile) return;
+    setSendingDigest(true);
+    setDigestStatusMessage(null);
+
+    try {
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+      // 1. Fetch all student profiles (filtered by center)
+      const { data: allProfiles, error: pErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('role', 'student');
+
+      if (pErr) throw pErr;
+
+      let targetStudents = allProfiles || [];
+      if (selectedBace !== 'all') {
+        targetStudents = targetStudents.filter(p => p.bace_id === selectedBace);
+      } else if (userProfile.role === 'admin') {
+        const myBaceIds = new Set(baces.map(b => b.id));
+        if (userProfile.bace_id) myBaceIds.add(userProfile.bace_id);
+        targetStudents = targetStudents.filter(p => p.bace_id && myBaceIds.has(p.bace_id));
+      }
+
+      // 2. Fetch today's submitted entries
+      const { data: todayEntries, error: eErr } = await supabase
+        .from('sadhana_entries')
+        .select('user_id')
+        .eq('date', todayStr);
+
+      if (eErr) throw eErr;
+
+      const submittedUserIds = new Set((todayEntries || []).map(e => e.user_id));
+
+      // 3. Filter students who missed today's entry
+      const missingStudents = targetStudents.filter(p => !submittedUserIds.has(p.id));
+
+      if (missingStudents.length === 0) {
+        setDigestStatusMessage('🎉 All students in this center have submitted their daily Sadhana today!');
+        return;
+      }
+
+      const centerNameObj = baces.find(b => b.id === selectedBace);
+      const centerName = selectedBace === 'all' ? 'All Assigned Centers' : (centerNameObj?.name || 'Center');
+
+      // 4. Send Brevo Digest Email to the Logged-In Admin
+      await sendBrevoMissingSadhanaDigest({
+        adminEmail: userProfile.email,
+        adminName: userProfile.full_name || 'Coordinator',
+        centerName,
+        dateStr: todayStr,
+        missingStudents: missingStudents.map(s => ({ full_name: s.full_name || 'Student', email: s.email }))
+      });
+
+      setDigestStatusMessage(`✅ Digest email sent to ${userProfile.email}! Identified ${missingStudents.length} student(s) pending sadhana.`);
+    } catch (err: any) {
+      setDigestStatusMessage(`❌ Error sending digest: ${err.message || 'Failed to send'}`);
+    } finally {
+      setSendingDigest(false);
+    }
+  };
 
   useEffect(() => {
     const initialize = async () => {
@@ -685,29 +754,54 @@ export const AdminDashboard = () => {
               </p>
             </div>
 
-            {(userProfile?.role === 'super_admin' || (userProfile?.role === 'admin' && baces.length > 0)) && (
-              <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
-                <div className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-widest text-[10px]">
-                  <Building2 size={16} className="text-primary-500" />
-                  Select Center
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              {(userProfile?.role === 'super_admin' || (userProfile?.role === 'admin' && baces.length > 0)) && (
+                <div className="flex items-center gap-4 bg-white p-2 pl-6 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
+                  <div className="flex items-center gap-3 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                    <Building2 size={16} className="text-primary-500" />
+                    Select Center
+                  </div>
+                  <select
+                    value={selectedBace}
+                    onChange={(e) => setSelectedBace(e.target.value)}
+                    className="bg-slate-50 border-none outline-none font-black text-slate-700 py-3 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
+                  >
+                    {userProfile?.role === 'super_admin' ? (
+                      <option value="all">Global View (All BACEs)</option>
+                    ) : (
+                      <option value="all">All My Centers ({baces.length})</option>
+                    )}
+                    {baces.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
                 </div>
-                <select
-                  value={selectedBace}
-                  onChange={(e) => setSelectedBace(e.target.value)}
-                  className="bg-slate-50 border-none outline-none font-black text-slate-700 py-3 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
-                >
-                  {userProfile?.role === 'super_admin' ? (
-                    <option value="all">Global View (All BACEs)</option>
-                  ) : (
-                    <option value="all">All My Centers ({baces.length})</option>
-                  )}
-                  {baces.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+              )}
+
+              <button
+                onClick={handleSendDigestEmail}
+                disabled={sendingDigest}
+                title="Send Brevo email alert listing students who have not submitted sadhana today"
+                className="px-4 py-3.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {sendingDigest ? <Loader2 className="animate-spin" size={16} /> : <MailWarning size={16} />}
+                <span>Email Pending Alert</span>
+              </button>
+            </div>
           </div>
+
+          {digestStatusMessage && (
+            <div className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in duration-300 ${
+              digestStatusMessage.startsWith('✅') || digestStatusMessage.startsWith('🎉') 
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              <span>{digestStatusMessage}</span>
+              <button onClick={() => setDigestStatusMessage(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+          )}
           {activeTab === 'logs' ? (
             <div className="space-y-6">
               {!drilldownStudent && (

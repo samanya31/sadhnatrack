@@ -111,3 +111,101 @@ export const sendBrevoOtpEmail = async (toEmail: string, otpCode: string, type: 
     htmlContent,
   });
 };
+
+/**
+ * Send daily digest of students who have NOT submitted Sadhana entries today.
+ */
+export const sendBrevoMissingSadhanaDigest = async ({
+  adminEmail,
+  adminName,
+  centerName,
+  dateStr,
+  missingStudents,
+}: {
+  adminEmail: string;
+  adminName: string;
+  centerName: string;
+  dateStr: string;
+  missingStudents: Array<{ full_name: string; email: string }>;
+}) => {
+  const subject = `⚠️ Unsubmitted Sadhana Alert: ${missingStudents.length} Students Pending (${centerName}) - ${dateStr}`;
+
+  const studentRowsHtml = missingStudents
+    .map(
+      (s, index) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">${index + 1}. ${s.full_name}</td>
+        <td style="padding: 12px 16px; color: #64748b;">${s.email}</td>
+        <td style="padding: 12px 16px; text-align: right;"><span style="background: #fef2f2; color: #dc2626; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 800;">PENDING</span></td>
+      </tr>
+    `
+    )
+    .join('');
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fdfaf5; margin: 0; padding: 40px 20px; }
+        .card { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .logo { font-size: 24px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 2px; }
+        .title { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 10px; }
+        .badge { background: #fff7ed; border: 1px solid #fdba74; color: #c2410c; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 800; display: inline-block; margin-top: 10px; }
+        .table-container { margin-top: 24px; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+        th { background: #f8fafc; padding: 12px 16px; font-size: 11px; font-weight: 900; text-transform: uppercase; color: #64748b; letter-spacing: 1px; }
+        .footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <div class="logo">Sadhana Track</div>
+          <div class="title">Daily Unsubmitted Sadhana Alert</div>
+          <div class="badge">Center: ${centerName} • Date: ${dateStr}</div>
+        </div>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          Hare Krishna <strong>${adminName}</strong> Prabhu / Mataji,
+        </p>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6;">
+          The following <strong>${missingStudents.length} student(s)</strong> have not submitted their daily Sadhana entry for today (${dateStr}):
+        </p>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Email Address</th>
+                <th style="text-align: right;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${studentRowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <p style="font-size: 13px; color: #64748b; margin-top: 24px; text-align: center;">
+          Please reach out to encourage them to submit their daily spiritual log on Sadhana Track.
+        </p>
+
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} Sadhana Track • Automated BACE Coordinator Digest
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendBrevoEmail({
+    toEmail: adminEmail,
+    toName: adminName,
+    subject,
+    htmlContent,
+  });
+};
+
