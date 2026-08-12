@@ -352,8 +352,11 @@ export const AdminDashboard = () => {
 
   const exportToExcel = (studentId: string, studentName: string) => {
     const studentData = entries.filter(e => e.user_id === studentId);
+    const profile = profiles.find(p => p.id === studentId);
+
     const headers = [
-      "Date", "Wake-up Time", "Sleep Time", 
+      "Student Name", "Email", "Gender", "Center Name",
+      "Date", "Status", "Wake-up Time", "Sleep Time", 
       "Mangal Arti", "Tulasi Arti", "Morning Japa", "Morning Hearing", "Morning Comment",
       "Japa Rounds", "Japa Finished By", "Rounds Breakdown",
       "Hearing (Mins)", "Hearing Speaker", "Hearing Topic",
@@ -363,7 +366,12 @@ export const AdminDashboard = () => {
     ];
 
     const rows = studentData.map(e => [
+      profile?.full_name || studentName || "",
+      profile?.email || e.user?.email || "",
+      profile?.gender || "",
+      profile?.bace?.name || "",
       e.date,
+      e.status ? (e.status.charAt(0).toUpperCase() + e.status.slice(1)) : "Submitted",
       formatTime(e.wakeup_time),
       formatTime(e.sleep_time),
       e.mangal_arti ? "Yes" : "No",
@@ -374,10 +382,10 @@ export const AdminDashboard = () => {
       e.rounds_completed,
       formatTime(e.rounds_completed_by),
       e.rounds_description || "",
-      e.hearing_minutes,
+      e.hearing_minutes || 0,
       e.hearing_speaker || "",
       e.hearing_title || "",
-      e.reading_minutes,
+      e.reading_minutes || 0,
       e.reading_book || "",
       e.reading_sloka || "",
       e.seva_minutes || 0,
