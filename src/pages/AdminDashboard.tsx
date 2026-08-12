@@ -304,8 +304,7 @@ export const AdminDashboard = () => {
     setRegError(null);
 
     const role = regData.role || 'student';
-    const baceId =
-      userProfile?.role === 'super_admin' ? regData.baceId : userProfile?.bace_id || regData.baceId;
+    const baceId = regData.baceId || userProfile?.bace_id || '';
 
     if (role === 'student' && !regData.gender) {
       setRegError('Please select gender for the student.');
@@ -913,7 +912,18 @@ export const AdminDashboard = () => {
             <div className="space-y-8">
               <div className="flex justify-between items-center gap-4 px-2">
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight">Directory</h2>
-                <button onClick={() => setIsModalOpen(true)} className="btn-primary rounded-2xl h-14 flex items-center gap-2 px-6 md:px-8 shadow-2xl"><UserPlus size={20} /> <span className="hidden sm:inline">Add Student</span></button>
+                <button 
+                  onClick={() => {
+                    setRegData(prev => ({
+                      ...prev,
+                      baceId: prev.baceId || (selectedBace !== 'all' ? selectedBace : (baces[0]?.id || userProfile?.bace_id || ''))
+                    }));
+                    setIsModalOpen(true);
+                  }} 
+                  className="btn-primary rounded-2xl h-14 flex items-center gap-2 px-6 md:px-8 shadow-2xl"
+                >
+                  <UserPlus size={20} /> <span className="hidden sm:inline">Add Student</span>
+                </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {profiles.map(profile => (
@@ -998,9 +1008,9 @@ export const AdminDashboard = () => {
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Email Address</label><input type="email" required value={regData.email} onChange={(e) => setRegData({ ...regData, email: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               <div><label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Password</label><input type="password" required value={regData.password} onChange={(e) => setRegData({ ...regData, password: e.target.value })} className="input-field h-12 md:h-14 rounded-xl" /></div>
               
-              {userProfile?.role === 'super_admin' && (
+              {(userProfile?.role === 'super_admin' || baces.length > 0) && (
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Assign to BACE</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 text-left">Assign to Center (BACE)</label>
                   <select
                     required
                     value={regData.baceId}
