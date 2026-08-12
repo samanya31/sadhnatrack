@@ -361,24 +361,24 @@ export const Login = () => {
     <div className="relative min-h-screen overflow-hidden font-sans">
       {/* ===== PAGE BACKGROUND SPLIT ===== */}
       <div className="absolute inset-0 flex flex-col lg:flex-row">
-        {/* LEFT GREY HALF */}
+        {/* LEFT GREY SIDE (50%) */}
         <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-[#F2F5FA]" />
 
-        {/* RIGHT BLUE HALF */}
-        <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-[#EDF2FF]" />
+        {/* RIGHT WARM ORANGE SIDE (50%) */}
+        <div className="w-full lg:w-1/2 h-1/2 lg:h-full bg-[#FFF3E6]" />
       </div>
 
       {/* ===== CENTER FLOATING CARD ===== */}
       <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 z-10">
         <div className="
           w-full
-          max-w-[1360px]
+          max-w-[1180px]
           h-auto
-          lg:h-[88vh]
-          min-h-[640px]
+          lg:h-[84vh]
+          min-h-[600px]
           bg-white
           rounded-[2.5rem]
-          shadow-[0_40px_80px_rgba(0,0,0,0.08)]
+          shadow-[0_30px_70px_rgba(0,0,0,0.08)]
           overflow-hidden
           flex
           flex-col
@@ -390,7 +390,7 @@ export const Login = () => {
           <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto">
             
             {/* Mobile Banner Illustration */}
-            <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6 bg-[#EAF2FB] animate-in fade-in duration-700">
+            <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6 bg-[#FFF3E6] animate-in fade-in duration-700">
               <img
                 src={loginImgRes}
                 alt="Sadhana Track Login"
@@ -677,11 +677,11 @@ export const Login = () => {
           </div>
 
           {/* RIGHT PANEL - SINGLE FULL BOX IMAGE */}
-          <div className="hidden lg:block w-1/2 relative overflow-hidden bg-[#EAF2FB]">
+          <div className="hidden lg:block w-1/2 relative overflow-hidden bg-[#FFF3E6]">
             <img
               src={loginImg}
               alt="Sadhana Track Login"
-              className="w-full h-full object-cover object-center"
+              className="w-full h-full object-cover object-left"
             />
           </div>
         </div>
