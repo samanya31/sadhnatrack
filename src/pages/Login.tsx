@@ -387,7 +387,7 @@ export const Login = () => {
           border-slate-100
         ">
           {/* LEFT LOGIN / SIGNUP PANEL */}
-          <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-8 p-8 sm:p-12 lg:px-14 pb-8 overflow-y-auto relative">
+          <div className="w-full lg:w-1/2 flex flex-col pt-0 lg:pt-6 p-6 sm:p-10 lg:px-12 pb-6 overflow-y-auto lg:overflow-hidden relative">
             
             {/* Mobile Banner Illustration */}
             <div className="w-[calc(100%+4rem)] -mx-8 sm:-mx-12 h-56 lg:hidden relative shrink-0 -mt-8 sm:-mt-12 overflow-hidden mb-6 bg-[#FFF3E6] animate-in fade-in duration-700">
@@ -402,25 +402,25 @@ export const Login = () => {
             <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto relative z-10">
               
               {/* Logo & Header */}
-              <div className="flex items-center gap-3.5 mb-6">
-                <img src={iskconLogo} alt="ISKCON Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain shrink-0" />
+              <div className={`flex items-center gap-3 ${isSignUp ? 'mb-3' : 'mb-4 sm:mb-5'}`}>
+                <img src={iskconLogo} alt="ISKCON Logo" className={`${isSignUp ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-14 h-14 sm:w-16 sm:h-16'} object-contain shrink-0`} />
                 <div>
-                  <h2 className="text-xl font-black text-slate-900 tracking-tight uppercase">Sadhana Track</h2>
-                  <p className="text-[10px] font-extrabold text-orange-600 uppercase tracking-widest">Spiritual Growth Platform</p>
+                  <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">Sadhana Track</h2>
+                  <p className="text-[9px] sm:text-[10px] font-extrabold text-orange-600 uppercase tracking-widest">Spiritual Growth Platform</p>
                 </div>
               </div>
 
-              <div className="mb-6">
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              <div className={`${isSignUp ? 'mb-3' : 'mb-4 sm:mb-5'}`}>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   {isSignUp ? 'Create Account' : 'Welcome Back'}
                 </h1>
-                <p className="text-slate-500 text-sm font-medium mt-1">
+                <p className="text-slate-500 text-xs font-medium mt-0.5">
                   {isSignUp ? 'Register to start tracking your daily spiritual progress' : 'Enter your credentials to access your dashboard'}
                 </p>
               </div>
 
               {/* Mode Switcher Pills */}
-              <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-6 border border-slate-200/50">
+              <div className={`flex bg-slate-100/80 p-1.5 rounded-2xl ${isSignUp ? 'mb-3' : 'mb-4 sm:mb-5'} border border-slate-200/50`}>
                 <button
                   type="button"
                   onClick={() => { setIsSignUp(false); setError(null); setSuccessMessage(null); }}
@@ -457,9 +457,9 @@ export const Login = () => {
 
               {!isSignUp ? (
                 /* Login Form */
-                <form onSubmit={handleLogin} className="space-y-5">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2">Email Address</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Email Address</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
@@ -467,14 +467,14 @@ export const Login = () => {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="name@example.com"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between ml-1 mb-2">
+                    <div className="flex items-center justify-between ml-1 mb-1.5">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
                       <button
                         type="button"
@@ -497,7 +497,7 @@ export const Login = () => {
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="••••••••"
                       />
                     </div>
@@ -514,34 +514,34 @@ export const Login = () => {
                 </form>
               ) : (
                 /* Registration Form */
-                <form onSubmit={handleSignUp} className="space-y-4">
+                <form onSubmit={handleSignUp} className="space-y-2.5">
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Full Name</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Full Name</label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input
                         type="text"
                         required
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                        className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
                         placeholder="John Doe"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between ml-1 mb-1.5">
+                    <div className="flex items-center justify-between ml-1 mb-1">
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
                       {isEmailVerified && email.trim() === verifiedEmail && (
-                        <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                          ✓ Email Verified
+                        <span className="text-[9px] font-black text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          ✓ Verified
                         </span>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                           type="email"
                           required
@@ -554,7 +554,7 @@ export const Login = () => {
                               setOtpSent(false);
                             }
                           }}
-                          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                          className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
                           placeholder="name@example.com"
                         />
                       </div>
@@ -563,10 +563,10 @@ export const Login = () => {
                           type="button"
                           disabled={sendingOtp || !email.includes('@')}
                           onClick={handleSendSignupOtp}
-                          className="px-3.5 py-2 text-[10px] font-black uppercase tracking-wider bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-xl border border-orange-200 transition-all shrink-0 cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                          className="px-3 py-2 text-[9px] font-black uppercase tracking-wider bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-xl border border-orange-200 transition-all shrink-0 cursor-pointer disabled:opacity-40 flex items-center gap-1"
                         >
-                          {sendingOtp ? <Loader2 className="animate-spin" size={14} /> : null}
-                          {otpSent ? 'Resend OTP' : 'Send OTP'}
+                          {sendingOtp ? <Loader2 className="animate-spin" size={12} /> : null}
+                          {otpSent ? 'Resend' : 'Send OTP'}
                         </button>
                       )}
                     </div>
@@ -574,10 +574,10 @@ export const Login = () => {
 
                   {/* Inline OTP Verification Box */}
                   {otpSent && !(isEmailVerified && email.trim() === verifiedEmail) && (
-                    <div className="bg-orange-50/90 border border-orange-200/80 p-3.5 rounded-2xl space-y-2 animate-in fade-in duration-300">
-                      <p className="text-[11px] font-bold text-orange-800 flex items-center gap-1.5">
-                        <ShieldCheck size={16} className="text-orange-600 shrink-0" />
-                        Enter 6-digit OTP code sent to <span className="font-black text-orange-950 underline">{email}</span>:
+                    <div className="bg-orange-50/90 border border-orange-200/80 p-2.5 rounded-xl space-y-1.5 animate-in fade-in duration-300">
+                      <p className="text-[10px] font-bold text-orange-800 flex items-center gap-1">
+                        <ShieldCheck size={14} className="text-orange-600 shrink-0" />
+                        OTP sent to <span className="font-black text-orange-950 underline">{email}</span>:
                       </p>
                       <div className="flex gap-2">
                         <input
@@ -586,43 +586,43 @@ export const Login = () => {
                           value={signupOtpInput}
                           onChange={(e) => setSignupOtpInput(e.target.value)}
                           placeholder="6-Digit OTP"
-                          className="px-3 py-2 text-center text-base font-mono font-black bg-white border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 outline-none flex-1 tracking-[0.3em]"
+                          className="px-3 py-1.5 text-center text-sm font-mono font-black bg-white border border-orange-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 outline-none flex-1 tracking-[0.2em]"
                         />
                         <button
                           type="button"
                           disabled={verifyingOtp || signupOtpInput.trim().length < 6}
                           onClick={handleVerifySignupInlineOtp}
-                          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1"
                         >
-                          {verifyingOtp ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
+                          {verifyingOtp ? <Loader2 className="animate-spin" size={12} /> : 'Verify'}
                         </button>
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Password</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Password</label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input
                         type="password"
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                        className="w-full pl-10 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
                         placeholder="••••••••"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Gender</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Gender</label>
                       <select
                         required
                         value={gender}
                         onChange={(e) => setGender(e.target.value)}
-                        className="w-full px-3 py-3 bg-white border border-slate-200 outline-none rounded-xl text-slate-900 font-bold text-xs capitalize shadow-xs"
+                        className="w-full px-2.5 py-2.5 bg-white border border-slate-200 outline-none rounded-xl text-slate-900 font-bold text-xs capitalize shadow-xs"
                       >
                         <option value="male">Male</option>
                         <option value="female">Female</option>
@@ -631,32 +631,32 @@ export const Login = () => {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1.5">Center Code</label>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Center Code</label>
                       <div className="relative">
-                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                         <input
                           type="text"
                           required
                           value={baceCode}
                           onChange={(e) => setBaceCode(e.target.value)}
-                          className="w-full pl-9 pr-3 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-bold uppercase bg-white shadow-xs"
+                          className="w-full pl-8 pr-2.5 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-bold uppercase bg-white shadow-xs"
                           placeholder="DELHI26"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <button
                       type="submit"
                       disabled={loading || !(isEmailVerified && email.trim() === verifiedEmail)}
-                      className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                      {loading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
                       {loading ? 'Creating Account...' : 'Sign Up'}
                     </button>
                     {!(isEmailVerified && email.trim() === verifiedEmail) && (
-                      <p className="text-center text-[10px] font-bold text-slate-400 mt-2">
+                      <p className="text-center text-[9px] font-bold text-slate-400 mt-1">
                         🔒 Verify your email address via OTP above to unlock Sign Up
                       </p>
                     )}
@@ -666,7 +666,7 @@ export const Login = () => {
             </div>
 
             {/* Pinned Left Footer */}
-            <div className="mt-auto pt-6 border-t border-slate-100 relative z-10">
+            <div className="mt-auto pt-4 border-t border-slate-100 relative z-10">
               <p className="text-[11px] font-semibold text-slate-400 select-none">
                 © {new Date().getFullYear()} Sadhana Track • Spiritual Growth Platform<br />
                 <span className="text-orange-600 font-extrabold">BACE Community & Habit Telemetry</span>
