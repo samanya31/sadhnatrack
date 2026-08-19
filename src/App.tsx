@@ -5,6 +5,7 @@ import { StudentLog } from './pages/StudentLog';
 import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
 import { StudentTargets } from './pages/StudentTargets';
+import { StudentAICoach } from './pages/StudentAICoach';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
 import { AdminBaces } from './pages/AdminBaces';
@@ -204,6 +205,15 @@ function App() {
           element={
             session ? (
               (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentTargets />
+            ) : <Navigate to="/login" replace />
+          } 
+        />
+
+        <Route 
+          path="/ai-coach" 
+          element={
+            session ? (
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentAICoach />
             ) : <Navigate to="/login" replace />
           } 
         />

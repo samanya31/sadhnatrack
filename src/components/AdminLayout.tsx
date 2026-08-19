@@ -110,7 +110,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
               </div>
               <div className="flex flex-col justify-center">
                 <h2 className="text-[14px] sm:text-[18px] font-black text-slate-900 leading-tight tracking-tight">
-                  Sadhana Admin
+                  AI Sadhna Coach Admin
                 </h2>
                 <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-80">
                   Control Center

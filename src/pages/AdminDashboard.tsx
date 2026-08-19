@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminIntelligenceCard } from '../components/AdminIntelligenceCard';
+import { CenterBenchmarksModal } from '../components/CenterBenchmarksModal';
 import { supabase, registerUserWithoutLoggingIn } from '../lib/supabase';
 import { type SadhanaEntry } from '../types/index';
 import { 
@@ -21,7 +23,8 @@ import {
   MessageSquare,
   Hammer,
   Building2,
-  MailWarning
+  MailWarning,
+  Settings
 } from 'lucide-react';
 import { sendBrevoMissingSadhanaDigest } from '../lib/brevo';
 import { format } from 'date-fns';
@@ -36,6 +39,7 @@ import type { UserProfile, BACE } from '../types/index';
 
 export const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'logs' | 'students'>('logs');
+  const [isBenchmarksModalOpen, setIsBenchmarksModalOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -802,8 +806,24 @@ export const AdminDashboard = () => {
                 {sendingDigest ? <Loader2 className="animate-spin" size={16} /> : <MailWarning size={16} />}
                 <span>Email Pending Alert</span>
               </button>
+
+              <button
+                onClick={() => setIsBenchmarksModalOpen(true)}
+                title="Configure Center Targets & Spiritual Benchmarks"
+                className="px-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Settings size={16} />
+                <span>Center Benchmarks</span>
+              </button>
             </div>
           </div>
+
+          <CenterBenchmarksModal
+            baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' ? null : selectedBace) : userProfile?.bace_id || null}
+            baceName={userProfile?.bace?.name || 'Center'}
+            isOpen={isBenchmarksModalOpen}
+            onClose={() => setIsBenchmarksModalOpen(false)}
+          />
 
           {digestStatusMessage && (
             <div className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-sm animate-in fade-in duration-300 ${
@@ -817,6 +837,10 @@ export const AdminDashboard = () => {
               </button>
             </div>
           )}
+
+          {/* Smart Mentoring Intelligence Card */}
+          <AdminIntelligenceCard baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' ? null : selectedBace) : userProfile?.bace_id} />
+
           {activeTab === 'logs' ? (
             <div className="space-y-6">
               {!drilldownStudent && (

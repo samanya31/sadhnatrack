@@ -300,3 +300,53 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 12. RPC Function for Resetting User Password via Verified Brevo OTP
+CREATE OR REPLACE FUNCTION public.reset_user_password_with_otp(
+  p_email TEXT,
+  p_otp_code TEXT,
+  p_new_password TEXT
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_user_id UUID;
+  v_otp_id UUID;
+BEGIN
+  -- 1. Check if OTP is valid & not expired in password_otps
+  SELECT id INTO v_otp_id
+  FROM public.password_otps
+  WHERE lower(email) = lower(p_email)
+    AND otp_code = p_otp_code
+    AND expires_at >= NOW()
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_otp_id IS NULL THEN
+    RAISE EXCEPTION 'Invalid or expired OTP verification code.';
+  END IF;
+
+  -- 2. Find user in auth.users
+  SELECT id INTO v_user_id
+  FROM auth.users
+  WHERE lower(email) = lower(p_email);
+
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'No user account found for this email address.';
+  END IF;
+
+  -- 3. Update password in auth.users
+  UPDATE auth.users
+  SET encrypted_password = extensions.crypt(p_new_password, extensions.gen_salt('bf'))
+  WHERE id = v_user_id;
+
+  -- 4. Clear force_password_change in profiles
+  UPDATE public.profiles
+  SET force_password_change = false
+  WHERE id = v_user_id;
+
+  -- 5. Delete used OTP
+  DELETE FROM public.password_otps WHERE id = v_otp_id;
+
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, extensions;

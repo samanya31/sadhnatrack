@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
+import { AICoachModal } from '../components/AICoachModal';
 import { supabase, calculateTargetActualProgress } from '../lib/supabase';
 import {
   PenLine,
@@ -15,7 +16,7 @@ import {
   BookOpen,
   Headphones,
   Star,
-  PlayCircle
+  Sparkles
 } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -139,6 +140,7 @@ export const StudentDashboard = () => {
   const [yesterdayEntry, setYesterdayEntry] = useState<SadhanaEntry | null>(null);
   const [userTargets, setUserTargets] = useState<any[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [isAICoachModalOpen, setIsAICoachModalOpen] = useState(false);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
@@ -374,11 +376,11 @@ export const StudentDashboard = () => {
               </p>
               <div className="flex flex-wrap gap-2 justify-start">
                 <button
-                  onClick={() => navigate('/log')}
-                  className="px-5 py-2.5 bg-white/20 backdrop-blur-md border border-white/30 text-white rounded-xl font-bold hover:bg-white/30 transition-all flex items-center gap-1.5 text-sm cursor-pointer shadow-sm"
+                  onClick={() => navigate('/ai-coach')}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-extrabold transition-all flex items-center gap-2 text-sm cursor-pointer shadow-lg shadow-orange-500/25 hover:scale-105"
                 >
-                  <PlayCircle className="w-4 h-4" />
-                  Resume Chanting Log
+                  <Sparkles className="w-4 h-4 text-amber-200 fill-amber-200" />
+                  <span>AI Sadhna Coach Report</span>
                 </button>
               </div>
             </div>
@@ -677,6 +679,15 @@ export const StudentDashboard = () => {
         </div>
 
       </div>
+
+      {/* AI Sadhna Coach Modal */}
+      {userProfile?.id && (
+        <AICoachModal
+          userId={userProfile.id}
+          isOpen={isAICoachModalOpen}
+          onClose={() => setIsAICoachModalOpen(false)}
+        />
+      )}
     </StudentLayout>
   );
 };

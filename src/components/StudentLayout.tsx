@@ -9,7 +9,8 @@ import {
   History,
   Target,
   Home,
-  Lock
+  Lock,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -45,6 +46,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
     { name: 'Spiritual Targets', path: '/targets', icon: Target, description: 'Habits & goals planner' },
     { name: 'Sadhana History', path: '/history', icon: History, description: 'View past logs' },
     { name: 'Analytical Reports', path: '/reports', icon: BarChart3, description: 'View analytics' },
+    { name: 'AI Sadhna Coach', path: '/ai-coach', icon: Sparkles, description: 'AI Sadhana Report' },
     { name: 'Change Password', path: '/change-password', icon: Lock, description: 'Update password' },
   ];
 
@@ -66,7 +68,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
               </div>
               <div className="flex flex-col justify-center">
                 <h2 className="text-[14px] sm:text-[18px] font-black text-slate-900 leading-tight tracking-tight">
-                  Sadhana Track
+                  AI Sadhna Coach
                 </h2>
                 <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5 opacity-80">
                   Student Portal

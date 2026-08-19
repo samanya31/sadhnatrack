@@ -32,6 +32,7 @@ export const Login = () => {
   const [forgotStep, setForgotStep] = useState<'email' | 'otp' | 'new_password'>('email');
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotOtp, setForgotOtp] = useState('');
+  const [verifiedOtpCode, setVerifiedOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
@@ -299,8 +300,7 @@ export const Login = () => {
         .limit(1);
 
       if (dbOtps && dbOtps.length > 0) {
-        // Delete used OTP
-        await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
+        setVerifiedOtpCode(cleanOtp);
         setForgotStep('new_password');
         setForgotSuccess('OTP verified successfully! Now set your new password.');
         return;
@@ -335,23 +335,46 @@ export const Login = () => {
     setForgotLoading(true);
     setForgotError(null);
 
+    const cleanEmail = forgotEmail.trim();
+    const cleanOtp = verifiedOtpCode || forgotOtp.trim();
+
     try {
-      // Try updating logged in recovery user session
+      // 1. Try updating password via RPC (verified Brevo OTP)
+      const { data: rpcSuccess, error: rpcErr } = await supabase.rpc('reset_user_password_with_otp', {
+        p_email: cleanEmail,
+        p_otp_code: cleanOtp,
+        p_new_password: newPassword
+      });
+
+      if (!rpcErr && rpcSuccess) {
+        alert('Password updated successfully! Logging you in...');
+        setShowForgotModal(false);
+        setForgotStep('email');
+        setEmail(cleanEmail);
+        setPassword(newPassword);
+
+        // Auto login
+        await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: newPassword
+        });
+        return;
+      }
+
+      // 2. Fallback to Supabase auth.updateUser (if session is active)
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (updateError) {
-        // If not logged in, try signing in with recovery / admin or clear force password flag
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       alert('Password updated successfully! You can now log in with your new password.');
       setShowForgotModal(false);
       setForgotStep('email');
+      setEmail(cleanEmail);
       setPassword(newPassword);
     } catch (err: any) {
-      setForgotError('Failed to update password: ' + err.message);
+      setForgotError('Failed to update password: ' + (err.message || 'Please run the password reset database script.'));
     } finally {
       setForgotLoading(false);
     }
