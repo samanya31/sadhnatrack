@@ -807,14 +807,16 @@ export const AdminDashboard = () => {
                 <span>Email Pending Alert</span>
               </button>
 
-              <button
-                onClick={() => setIsBenchmarksModalOpen(true)}
-                title="Configure Center Targets & Spiritual Benchmarks"
-                className="px-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
-              >
-                <Settings size={16} />
-                <span>Center Benchmarks</span>
-              </button>
+              {userProfile?.role !== 'super_admin' && (
+                <button
+                  onClick={() => setIsBenchmarksModalOpen(true)}
+                  title="Configure Center Targets & Spiritual Benchmarks"
+                  className="px-4 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0"
+                >
+                  <Settings size={16} />
+                  <span>Center Benchmarks</span>
+                </button>
+              )}
             </div>
           </div>
 
