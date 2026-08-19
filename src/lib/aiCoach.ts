@@ -102,6 +102,9 @@ const generateDeterministicFallbackReport = (
   if (snapshot.avgWakeupDecimal && snapshot.avgWakeupDecimal > 6.0) {
     whatDeclined.push(`Average wake-up time shifted later to ${snapshot.avgWakeup} (Center benchmark target is ${wakeupTarget}).`);
   }
+  if (snapshot.avgDailyExerciseMins < 15) {
+    whatDeclined.push(`Physical exercise averaged only ${snapshot.avgDailyExerciseMins}m/day (below the 15m daily health minimum). Physical lethargy directly impacts Japa alertness.`);
+  }
   if (whatDeclined.length === 0) {
     whatDeclined.push('No severe decline observed; maintain momentum!');
   }
@@ -127,7 +130,11 @@ const generateDeterministicFallbackReport = (
   // Recommendations
   recommendations.push(`According to your center's configured benchmark (${wakeupTarget}), aim to gradually shift wake-up time 15 minutes earlier.`);
   recommendations.push(`Complete at least 4-8 rounds of Japa in Brahma Muhurta before 7:00 AM.`);
-  recommendations.push(`Block a fixed 20-minute daily slot for Shravanam or reading Bhagavad-gita.`);
+  if (snapshot.avgDailyExerciseMins < 15) {
+    recommendations.push(`Commit to at least 15-20 minutes of daily physical exercise (brisk walk, yoga, or workout) to maintain physical stamina and avoid health fatigue.`);
+  } else {
+    recommendations.push(`Block a fixed 20-minute daily slot for Shravanam or reading Bhagavad-gita.`);
+  }
 
   return {
     whatWentWell,
@@ -189,6 +196,7 @@ export const generateSadhanaReport = async (
   let japaByTargetCount = 0;
   let totalReadingMins = 0;
   let totalHearingMins = 0;
+  let totalExerciseMins = 0;
 
   const targetNoonHour = parseInt((benchmarks.japa_completion_time?.target_value || '12:00').split(':')[0], 10) || 12;
 
@@ -208,6 +216,7 @@ export const generateSadhanaReport = async (
 
     totalReadingMins += e.reading_minutes || 0;
     totalHearingMins += e.hearing_minutes || 0;
+    totalExerciseMins += e.exercise_minutes || 0;
   });
 
   const avgWakeupMins = wakeupCount > 0 ? totalWakeupMinutes / wakeupCount : 330; // default 5:30 AM
@@ -215,6 +224,7 @@ export const generateSadhanaReport = async (
   const avgWakeupMin = Math.round(avgWakeupMins % 60);
   const avgWakeupStr = `${String(avgWakeupHour).padStart(2, '0')}:${String(avgWakeupMin).padStart(2, '0')}`;
 
+  const avgDailyExerciseMins = userEntries.length > 0 ? Math.round(totalExerciseMins / userEntries.length) : 0;
   const completedTargetsCount = activeTargets.filter((t) => t.is_completed).length;
 
   const snapshot = {
@@ -228,6 +238,7 @@ export const generateSadhanaReport = async (
     japaByNoonRate: userEntries.length > 0 ? (japaByTargetCount / userEntries.length) * 100 : 0,
     totalReadingHours: totalReadingMins / 60,
     totalHearingHours: totalHearingMins / 60,
+    avgDailyExerciseMins,
     activeTargetsCount: activeTargets.length,
     targetsCompletedCount: completedTargetsCount,
   };
@@ -253,13 +264,15 @@ You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana 
 - Japa Finished by Target Time (${benchmarks.japa_completion_time?.target_value}): ${snapshot.japaByNoonRate.toFixed(0)}% of logged days
 - Total Svadhyaya (Reading): ${snapshot.totalReadingHours.toFixed(1)} hours
 - Total Shravanam (Hearing): ${snapshot.totalHearingHours.toFixed(1)} hours
+- Average Daily Physical Exercise: ${snapshot.avgDailyExerciseMins} minutes/day (Minimum Health Standard: 15 mins/day)
 - Active Targets Progress: ${snapshot.targetsCompletedCount} / ${snapshot.activeTargetsCount} targets completed
 
-[ANALYTICAL RIGOR & VALIDITY RULES]
+[ANALYTICAL RIGOR & HEALTH VALIDITY RULES]
 1. Always ground statements in: "According to your center's configured benchmark..." when referencing benchmarks.
 2. DO NOT claim overconfident statistical correlation on small observation windows (${timeRangeDays} days).
    - For 7-day windows: Use observational phrasing like "On days you woke earlier, you generally completed Japa earlier."
    - For 30-day windows: Use defensible analytical phrasing like "Over the last 30 days, earlier wake-up times were associated with faster Japa completion."
+3. PHYSICAL HEALTH & EXERCISE RULE: If average daily exercise is less than 15 minutes/day (${snapshot.avgDailyExerciseMins}m/day), explicitly warn in "whatDeclined" or "recommendations" that insufficient physical activity causes physical lethargy, reduced mental alertness during Japa, and long-term health consequences. Recommend at least 15–20 mins of daily physical exercise (brisk walk/yoga/workout).
 
 Return ONLY a valid JSON object matching this exact schema without markdown formatting or code fences:
 {
