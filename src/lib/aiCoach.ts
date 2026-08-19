@@ -161,9 +161,9 @@ export const generateSadhanaReport = async (
     if (cached) return cached;
   }
 
-  // 2. Compute Data Snapshot
+  // 2. Compute Data Snapshot (Exact timeRangeDays window, inclusive of today)
   const endDate = format(new Date(), 'yyyy-MM-dd');
-  const startDate = format(subDays(new Date(), timeRangeDays), 'yyyy-MM-dd');
+  const startDate = format(subDays(new Date(), timeRangeDays - 1), 'yyyy-MM-dd');
 
   const { data: userProfile } = await supabase
     .from('profiles')
@@ -227,12 +227,14 @@ export const generateSadhanaReport = async (
   const avgDailyExerciseMins = userEntries.length > 0 ? Math.round(totalExerciseMins / userEntries.length) : 0;
   const completedTargetsCount = activeTargets.filter((t) => t.is_completed).length;
 
+  const logsSubmittedCount = Math.min(userEntries.length, timeRangeDays);
+
   const snapshot = {
     userName: userProfile?.full_name || 'Devotee',
     baceName: userProfile?.bace?.name || 'Center',
     timeRangeDays,
-    logsSubmitted: userEntries.length,
-    submissionRate: (userEntries.length / timeRangeDays) * 100,
+    logsSubmitted: logsSubmittedCount,
+    submissionRate: Math.min(100, (userEntries.length / timeRangeDays) * 100),
     avgWakeup: avgWakeupStr,
     avgWakeupDecimal: avgWakeupMins / 60,
     japaByNoonRate: userEntries.length > 0 ? (japaByTargetCount / userEntries.length) * 100 : 0,
