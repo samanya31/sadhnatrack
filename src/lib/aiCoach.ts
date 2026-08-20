@@ -92,6 +92,8 @@ const generateDeterministicFallbackReport = (
 ): ReportSections => {
   const wakeupTarget = benchmarks.wakeup_time?.target_value || '04:30';
   const japaTarget = benchmarks.japa_completion_time?.target_value || '12:00';
+  const targetDailyReadingMins = parseInt(benchmarks.reading_minutes?.target_value || '30', 10) || 30;
+  const targetTotalReadingHours = (targetDailyReadingMins * timeRangeDays) / 60;
 
   const whatWentWell: string[] = [];
   const whatDeclined: string[] = [];
@@ -105,8 +107,8 @@ const generateDeterministicFallbackReport = (
   if (snapshot.submissionRate >= 70) {
     whatWentWell.push(`Maintained strong logging consistency (${safeLogsSubmitted}/${timeRangeDays} days logged).`);
   }
-  if (snapshot.totalReadingHours > 0) {
-    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period.`);
+  if (snapshot.totalReadingHours >= targetTotalReadingHours * 0.6) {
+    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period (Center benchmark: ${targetTotalReadingHours.toFixed(1)} hrs).`);
   }
   if (snapshot.japaByNoonRate >= 60) {
     whatWentWell.push(`Finished Japa rounds before center target time (${japaTarget}) on ${Math.round(snapshot.japaByNoonRate)}% of logged days.`);
@@ -116,7 +118,10 @@ const generateDeterministicFallbackReport = (
 
   // What declined
   if (snapshot.submissionRate < 70) {
-    whatDeclined.push(`Log submission rate dropped to ${Math.round(snapshot.submissionRate)}% (${timeRangeDays - snapshot.logsSubmitted} days unrecorded).`);
+    whatDeclined.push(`Log submission rate dropped to ${Math.round(snapshot.submissionRate)}% (${timeRangeDays - safeLogsSubmitted} days unrecorded).`);
+  }
+  if (snapshot.totalReadingHours < targetTotalReadingHours * 0.6) {
+    whatDeclined.push(`Reading (Svadhyaya) totaled only ${snapshot.totalReadingHours.toFixed(1)} hours over ${timeRangeDays} days (below center target of ${targetTotalReadingHours.toFixed(1)} hrs).`);
   }
   if (snapshot.japaByNoonRate < 50) {
     whatDeclined.push(`Late Japa completion observed — completed before ${japaTarget} on only ${Math.round(snapshot.japaByNoonRate)}% of days.`);
@@ -298,6 +303,9 @@ You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana 
    - For 30-day windows: Use defensible analytical phrasing like "Over the last 30 days, earlier wake-up times were associated with faster Japa completion."
 3. PHYSICAL HEALTH & EXERCISE RULE: If average daily exercise is less than 15 minutes/day (${snapshot.avgDailyExerciseMins}m/day), explicitly warn in "whatDeclined" or "recommendations" that insufficient physical activity causes physical lethargy, reduced mental alertness during Japa, and long-term health consequences. Recommend at least 15–20 mins of daily physical exercise (brisk walk/yoga/workout).
 4. READING & HEARING HOUR PHRASING: Total reading hours (${snapshot.totalReadingHours.toFixed(1)} hrs) represents the total cumulative reading over the entire ${timeRangeDays}-day period. NEVER call it "daily reading" — phrasing MUST be "Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period."
+5. READING BENCHMARK EVALUATION: The center target for reading is ${benchmarks.reading_minutes?.target_value || '30'} mins/day (which equals ${((parseInt(benchmarks.reading_minutes?.target_value || '30', 10) * timeRangeDays) / 60).toFixed(1)} hrs total over ${timeRangeDays} days). Compare total reading against this target:
+   - If total reading is >= 60% of target, list under "whatWentWell".
+   - If total reading is < 60% of target (e.g., 3.1 hrs over 30 days when target is 15 hrs), list under "whatDeclined" or "recommendations" as needing focus, NEVER under "whatWentWell".
 
 Return ONLY a valid JSON object matching this exact schema without markdown formatting or code fences:
 {

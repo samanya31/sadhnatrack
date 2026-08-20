@@ -404,22 +404,22 @@ export const StudentDashboard = () => {
           <div className="relative z-10 w-full px-5 md:px-10 py-6 md:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex-1 text-left">
               <div className="flex flex-wrap items-center gap-2 mb-2.5">
-                <button
-                  onClick={() => navigate('/targets')}
-                  className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors cursor-pointer"
-                >
-                  🎓 ISKCON BACE STUDENT
-                </button>
-
-                {streaks.currentStreak > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-200 rounded-full text-xs font-black tracking-wide shadow-sm">
-                    <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
+                {streaks.currentStreak > 0 ? (
+                  <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-200 rounded-full text-xs font-black tracking-wide shadow-sm">
+                    <Flame className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
                     <span>{streaks.currentStreak} Day Sadhana Streak</span>
                   </div>
+                ) : (
+                  <button
+                    onClick={() => navigate('/targets')}
+                    className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors cursor-pointer"
+                  >
+                    🎓 ISKCON BACE STUDENT
+                  </button>
                 )}
 
                 {streaks.longestStreak > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full text-xs font-bold tracking-wide">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full text-xs font-bold tracking-wide">
                     <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                     <span>Longest: {streaks.longestStreak} Days</span>
                   </div>
@@ -430,11 +430,18 @@ export const StudentDashboard = () => {
                 Welcome back, {userProfile?.full_name?.split(' ')[0] || 'Devotee'}!
               </h2>
               <p className="text-blue-100 text-sm md:text-base max-w-xl mb-4 font-medium leading-relaxed">
-                You have completed <span className="font-extrabold text-white">{todayRounds} rounds</span> of Japa today.
-                {streaks.currentStreak > 0 ? (
-                  <span> You are maintaining a <span className="font-black text-amber-300">{streaks.currentStreak}-day active sadhana streak</span>!</span>
+                {todayRounds > 0 ? (
+                  <span>
+                    Haribol! You've completed <span className="font-extrabold text-white">{todayRounds} rounds</span> of Japa today and maintained your <span className="font-black text-amber-300">{streaks.currentStreak}-day streak</span>! Keep up the spiritual momentum! ✨
+                  </span>
+                ) : streaks.currentStreak > 0 ? (
+                  <span>
+                    Your <span className="font-black text-amber-300">{streaks.currentStreak}-day sadhana streak</span> is active! Take 60 seconds to record today's sadhana to keep your streak burning strong. 🙏
+                  </span>
                 ) : (
-                  <span> Log your sadhana daily to build your spiritual streak!</span>
+                  <span>
+                    Every morning is a fresh opportunity for spiritual progress. Take 60 seconds to record today's sadhana to start your new streak! 🌱
+                  </span>
                 )}
               </p>
               <div className="flex flex-wrap gap-2 justify-start">
