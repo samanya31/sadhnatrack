@@ -45,12 +45,32 @@ export const checkCachedSadhanaReport = async (
 
     if (error || !data) return null;
 
+    const rawSections = data.report_content as ReportSections;
+    const timeRangeDays = data.report_type === 'monthly' ? 30 : 7;
+
+    const sanitizeItem = (item: string) => {
+      return item
+        .replace(/\(\d+\/7 days logged\)/g, (match) => {
+          const num = parseInt(match.replace(/\D/g, ''), 10);
+          return num > timeRangeDays ? `(${timeRangeDays}/${timeRangeDays} days logged)` : match;
+        })
+        .replace(/hours of daily reading/g, 'hours of reading over this period');
+    };
+
+    const sanitizedSections: ReportSections = {
+      whatWentWell: (rawSections.whatWentWell || []).map(sanitizeItem),
+      whatDeclined: (rawSections.whatDeclined || []).map(sanitizeItem),
+      importantPatterns: (rawSections.importantPatterns || []).map(sanitizeItem),
+      goalPerformance: (rawSections.goalPerformance || []).map(sanitizeItem),
+      recommendations: (rawSections.recommendations || []).map(sanitizeItem),
+    };
+
     return {
       id: data.id,
       reportType: data.report_type,
       timeRangeStart: data.time_range_start,
       timeRangeEnd: data.time_range_end,
-      sections: data.report_content as ReportSections,
+      sections: sanitizedSections,
       dataSnapshot: data.data_snapshot,
       isCached: true,
       modelUsed: data.model,
@@ -79,12 +99,14 @@ const generateDeterministicFallbackReport = (
   const goalPerformance: string[] = [];
   const recommendations: string[] = [];
 
+  const safeLogsSubmitted = Math.min(snapshot.logsSubmitted, timeRangeDays);
+
   // What went well
   if (snapshot.submissionRate >= 70) {
-    whatWentWell.push(`Maintained strong logging consistency (${snapshot.logsSubmitted}/${timeRangeDays} days logged).`);
+    whatWentWell.push(`Maintained strong logging consistency (${safeLogsSubmitted}/${timeRangeDays} days logged).`);
   }
   if (snapshot.totalReadingHours > 0) {
-    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of daily reading (Svadhyaya).`);
+    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period.`);
   }
   if (snapshot.japaByNoonRate >= 60) {
     whatWentWell.push(`Finished Japa rounds before center target time (${japaTarget}) on ${Math.round(snapshot.japaByNoonRate)}% of logged days.`);
@@ -275,6 +297,7 @@ You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana 
    - For 7-day windows: Use observational phrasing like "On days you woke earlier, you generally completed Japa earlier."
    - For 30-day windows: Use defensible analytical phrasing like "Over the last 30 days, earlier wake-up times were associated with faster Japa completion."
 3. PHYSICAL HEALTH & EXERCISE RULE: If average daily exercise is less than 15 minutes/day (${snapshot.avgDailyExerciseMins}m/day), explicitly warn in "whatDeclined" or "recommendations" that insufficient physical activity causes physical lethargy, reduced mental alertness during Japa, and long-term health consequences. Recommend at least 15–20 mins of daily physical exercise (brisk walk/yoga/workout).
+4. READING & HEARING HOUR PHRASING: Total reading hours (${snapshot.totalReadingHours.toFixed(1)} hrs) represents the total cumulative reading over the entire ${timeRangeDays}-day period. NEVER call it "daily reading" — phrasing MUST be "Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period."
 
 Return ONLY a valid JSON object matching this exact schema without markdown formatting or code fences:
 {
