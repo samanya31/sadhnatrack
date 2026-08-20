@@ -16,7 +16,8 @@ import {
   BookOpen,
   Headphones,
   Star,
-  Sparkles
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -141,6 +142,7 @@ export const StudentDashboard = () => {
   const [userTargets, setUserTargets] = useState<any[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isAICoachModalOpen, setIsAICoachModalOpen] = useState(false);
+  const [streaks, setStreaks] = useState({ currentStreak: 0, longestStreak: 0 });
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
@@ -232,6 +234,49 @@ export const StudentDashboard = () => {
       const entriesList = entries || [];
       setTodayEntry(entriesList.find((e: any) => e.date === todayStr) || null);
       setYesterdayEntry(entriesList.find((e: any) => e.date === yesterdayStr) || null);
+
+      // Compute Active & Longest Sadhana Logging Streak
+      if (entriesList.length > 0) {
+        const datesSet = new Set(entriesList.map((e: any) => e.date));
+        const sortedDates = Array.from(datesSet).sort();
+
+        let longest = 0;
+        let tempStreak = 0;
+        let prevDate: Date | null = null;
+
+        sortedDates.forEach((dateStr) => {
+          const currDate = new Date(dateStr);
+          if (!prevDate) {
+            tempStreak = 1;
+          } else {
+            const diff = Math.round((currDate.getTime() - prevDate.getTime()) / (1000 * 3600 * 24));
+            if (diff === 1) {
+              tempStreak++;
+            } else if (diff > 1) {
+              tempStreak = 1;
+            }
+          }
+          if (tempStreak > longest) longest = tempStreak;
+          prevDate = currDate;
+        });
+
+        let current = 0;
+        let checkDate = new Date();
+        let checkStr = format(checkDate, 'yyyy-MM-dd');
+
+        if (!datesSet.has(checkStr)) {
+          checkDate = subDays(checkDate, 1);
+          checkStr = format(checkDate, 'yyyy-MM-dd');
+        }
+
+        while (datesSet.has(checkStr)) {
+          current++;
+          checkDate = subDays(checkDate, 1);
+          checkStr = format(checkDate, 'yyyy-MM-dd');
+        }
+
+        setStreaks({ currentStreak: current, longestStreak: Math.max(longest, current) });
+      }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
     }
@@ -358,21 +403,39 @@ export const StudentDashboard = () => {
 
           <div className="relative z-10 w-full px-5 md:px-10 py-6 md:py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex-1 text-left">
-              <div className="flex items-center gap-2 mb-2.5">
+              <div className="flex flex-wrap items-center gap-2 mb-2.5">
                 <button
                   onClick={() => navigate('/targets')}
                   className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors cursor-pointer"
                 >
                   🎓 ISKCON BACE STUDENT
                 </button>
+
+                {streaks.currentStreak > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 backdrop-blur-md border border-amber-400/40 text-amber-200 rounded-full text-xs font-black tracking-wide shadow-sm">
+                    <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-pulse" />
+                    <span>{streaks.currentStreak} Day Sadhana Streak</span>
+                  </div>
+                )}
+
+                {streaks.longestStreak > 0 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full text-xs font-bold tracking-wide">
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                    <span>Longest: {streaks.longestStreak} Days</span>
+                  </div>
+                )}
               </div>
+
               <h2 className="text-xl md:text-4xl font-black text-white mb-1 tracking-tight">
                 Welcome back, {userProfile?.full_name?.split(' ')[0] || 'Devotee'}!
               </h2>
-              <p className="text-blue-100 text-sm md:text-lg max-w-xl mb-4 font-medium leading-normal">
-                You have completed <span className="font-bold text-white">{todayRounds} rounds</span> of Japa today.
-                <br />
-                Keep up the momentum!
+              <p className="text-blue-100 text-sm md:text-base max-w-xl mb-4 font-medium leading-relaxed">
+                You have completed <span className="font-extrabold text-white">{todayRounds} rounds</span> of Japa today.
+                {streaks.currentStreak > 0 ? (
+                  <span> You are maintaining a <span className="font-black text-amber-300">{streaks.currentStreak}-day active sadhana streak</span>!</span>
+                ) : (
+                  <span> Log your sadhana daily to build your spiritual streak!</span>
+                )}
               </p>
               <div className="flex flex-wrap gap-2 justify-start">
                 <button
