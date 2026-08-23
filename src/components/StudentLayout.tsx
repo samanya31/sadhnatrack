@@ -168,7 +168,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto bg-[#F9FAFB]">
+        <main className="flex-1 overflow-y-auto bg-[#F9FAFB] pb-24 lg:pb-0">
           <div
             className={
               isDashboard
@@ -189,6 +189,38 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Responsive Mobile Bottom Navigation Bar (Matches Design Screenshot) */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-2 py-2 shadow-2xl flex items-center justify-around">
+        {[
+          { name: 'Home', path: '/dashboard', icon: Home },
+          { name: 'Goals', path: '/targets', icon: Target },
+          { name: 'Analytics', path: '/reports', icon: BarChart3 },
+          { name: 'History', path: '/history', icon: History },
+          { name: 'AI Coach', path: '/ai-coach', icon: Sparkles },
+        ].map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.path}
+              onClick={() => {
+                navigate(item.path);
+                setIsSidebarOpen(false);
+              }}
+              className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer ${
+                isActive
+                  ? 'bg-indigo-50 text-indigo-600 rounded-2xl px-3.5 py-1.5 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-700 px-2 py-1'
+              }`}
+            >
+              <item.icon size={isActive ? 22 : 20} className={isActive ? 'text-indigo-600' : 'text-slate-400'} />
+              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-indigo-700' : 'font-semibold text-slate-500'}`}>
+                {item.name}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
       {isSidebarOpen && (
         <div
