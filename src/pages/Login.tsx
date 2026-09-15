@@ -411,13 +411,13 @@ export const Login = () => {
     try {
       const { data: rpcRes, error: rpcErr } = await supabase.rpc('reset_user_password_with_otp', {
         p_email: cleanEmail,
-        p_otp: verifiedOtpCode,
+        p_otp_code: verifiedOtpCode,
         p_new_password: newPassword
       });
 
       if (rpcErr) throw rpcErr;
-      if (rpcRes && rpcRes.success === false) {
-        throw new Error(rpcRes.error || 'Password reset failed.');
+      if (rpcRes === false) {
+        throw new Error('Password reset failed. Please try again.');
       }
 
       setForgotSuccess('🎉 Password updated successfully! Logging you in...');
