@@ -54,17 +54,19 @@ export const Login = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [forgotResendTimer, setForgotResendTimer] = useState(0);
 
-  // Countdown timer for Resend OTP
+  // Countdown timer for Resend OTP (Signup and Forgot Password)
   useEffect(() => {
     let interval: any = null;
-    if (resendTimer > 0) {
+    if (resendTimer > 0 || forgotResendTimer > 0) {
       interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1);
+        setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+        setForgotResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [resendTimer]);
+  }, [resendTimer, forgotResendTimer]);
 
   // Helper to mask email address (e.g. sa*****@gmail.com)
   const maskEmail = (emailStr: string) => {
@@ -171,6 +173,7 @@ export const Login = () => {
 
       // 3. Generate & store 6-digit OTP code
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('🔑 [Signup OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -206,6 +209,8 @@ export const Login = () => {
 
     try {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('🔑 [Signup Resent OTP Code]:', generatedOtp);
+
       await supabase.from('password_otps').insert({
         email: cleanEmail,
         otp_code: generatedOtp,
@@ -328,17 +333,28 @@ export const Login = () => {
     const cleanEmail = forgotEmail.trim().toLowerCase();
 
     try {
+      let userExists = false;
       const { data: exists, error: rpcErr } = await supabase.rpc('check_email_exists', {
         p_email: cleanEmail
       });
 
-      if (rpcErr) console.warn('RPC check_email_exists error:', rpcErr);
+      if (!rpcErr && typeof exists === 'boolean') {
+        userExists = exists;
+      } else {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        userExists = !!prof;
+      }
 
-      if (!exists) {
+      if (!userExists) {
         throw new Error('No account found with this email address. Please check the spelling or register a new account.');
       }
 
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('🔑 [Forgot Password OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -354,10 +370,47 @@ export const Login = () => {
 
       await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
 
+      setForgotResendTimer(30);
       setForgotStep('otp');
       setForgotSuccess(`A 6-digit OTP code has been sent to ${cleanEmail}. Check your inbox.`);
     } catch (err: any) {
       setForgotError(err.message || 'Failed to send OTP code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResendForgotOtp = async () => {
+    if (forgotResendTimer > 0 || forgotLoading) return;
+    const cleanEmail = forgotEmail.trim().toLowerCase();
+    if (!cleanEmail) return;
+
+    setForgotLoading(true);
+    setForgotError(null);
+    setForgotSuccess(null);
+
+    try {
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      console.log('🔑 [Forgot Password Resent OTP Code]:', generatedOtp);
+
+      await supabase.from('password_otps').insert({
+        email: cleanEmail,
+        otp_code: generatedOtp,
+        type: 'reset',
+        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+      });
+
+      const apiKey = import.meta.env.VITE_BREVO_API_KEY;
+      if (!apiKey) {
+        throw new Error('VITE_BREVO_API_KEY is missing from your .env file!');
+      }
+
+      await sendBrevoOtpEmail(cleanEmail, generatedOtp, 'reset');
+
+      setForgotResendTimer(30);
+      setForgotSuccess(`Resent a new 6-digit OTP code to ${cleanEmail}.`);
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to resend OTP code.');
     } finally {
       setForgotLoading(false);
     }
@@ -990,6 +1043,18 @@ export const Login = () => {
                     className="w-full text-center px-4 py-3 border-2 border-orange-300 rounded-xl focus:border-orange-500 outline-none text-xl font-mono font-black tracking-[0.4em]"
                     placeholder="••••••"
                   />
+                </div>
+
+                <div className="flex items-center justify-between px-1 text-xs">
+                  <span className="text-slate-400 font-medium">Didn't receive code?</span>
+                  <button
+                    type="button"
+                    onClick={handleResendForgotOtp}
+                    disabled={forgotResendTimer > 0 || forgotLoading}
+                    className="text-orange-600 hover:text-orange-700 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    {forgotResendTimer > 0 ? `Resend in ${forgotResendTimer}s` : 'Resend OTP'}
+                  </button>
                 </div>
 
                 <button

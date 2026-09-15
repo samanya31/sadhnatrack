@@ -49,10 +49,13 @@ export const sendBrevoEmail = async ({
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error('❌ Brevo Email API failed:', response.status, errorData);
     throw new Error(errorData.message || `Brevo Email API failed with status ${response.status}`);
   }
 
-  return await response.json();
+  const result = await response.json().catch(() => ({}));
+  console.log('✅ Brevo Email sent successfully to:', toEmail, result);
+  return result;
 };
 
 /**
