@@ -151,12 +151,14 @@ CREATE POLICY "profiles_update_own" ON public.profiles
 CREATE POLICY "profiles_insert_own" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
--- BACEs & Admin_BACEs: Read-only for authenticated users
-CREATE POLICY "baces_select_all" ON public.baces
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- BACEs & Admin_BACEs: Full access for authenticated users (creating, updating, deleting centers)
+CREATE POLICY "baces_all" ON public.baces
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
 
-CREATE POLICY "admin_baces_select_all" ON public.admin_baces
-  FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "admin_baces_all" ON public.admin_baces
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');
 
 -- Sadhana Entries & Targets: Full access for authenticated users
 CREATE POLICY "sadhana_entries_all" ON public.sadhana_entries

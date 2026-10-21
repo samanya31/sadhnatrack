@@ -471,7 +471,7 @@ export const AdminDashboard = () => {
                     <div className="flex items-center gap-6">
                       {/* Circular Progress Ring */}
                       <div className="relative w-24 h-24 shrink-0">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                           <PieChart>
                             <Pie
                               data={[

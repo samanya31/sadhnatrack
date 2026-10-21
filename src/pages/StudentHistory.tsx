@@ -323,7 +323,7 @@ export const StudentHistory = () => {
                   <div className="lg:col-span-2 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-6 md:p-7 flex flex-col justify-between min-h-[180px] group hover:shadow-md transition-all duration-300">
                     <div className="flex items-center gap-6">
                       <div className="relative w-24 h-24 shrink-0 min-h-[96px]">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={96}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={96} minWidth={0}>
                           <PieChart>
                             <Pie
                               data={[
