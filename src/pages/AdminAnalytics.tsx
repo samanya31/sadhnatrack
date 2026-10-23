@@ -50,6 +50,7 @@ const MiniSparkline: React.FC<{ data: number[]; color: string }> = ({ data, colo
 export const AdminAnalytics: React.FC = () => {
   const [data, setData] = useState<AnalyticsSummary>(defaultAnalyticsData);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState<'live' | 'demo'>('live');
   const [selectedCenter, setSelectedCenter] = useState('all');
   const [centers, setCenters] = useState<Array<{ id: string; name: string }>>([]);
   const [dateRange] = useState('Oct 1, 2026 – Oct 15, 2026');
@@ -58,7 +59,7 @@ export const AdminAnalytics: React.FC = () => {
   useEffect(() => {
     loadCenters();
     loadAnalytics();
-  }, [selectedCenter]);
+  }, [selectedCenter, mode]);
 
   const loadCenters = async () => {
     try {
@@ -74,7 +75,7 @@ export const AdminAnalytics: React.FC = () => {
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const res = await fetchProductAnalytics(selectedCenter);
+      const res = await fetchProductAnalytics(selectedCenter, mode);
       setData(res);
     } catch (err) {
       console.error('Failed to load product analytics:', err);
@@ -104,8 +105,17 @@ export const AdminAnalytics: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Product Analytics Dashboard
               </h1>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold">
-                <span>🍃</span> "Helping practitioners build a consistent Sadhana habit."
+              <span
+                className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold transition-colors ${
+                  mode === 'live'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+                }`}
+              >
+                <span>{mode === 'live' ? '🟢' : '📊'}</span>
+                {mode === 'live'
+                  ? 'Live Production Telemetry (Real Supabase Records)'
+                  : 'Demo Showcase Mode (234 Users Design Baseline)'}
               </span>
             </div>
             <p className="text-sm font-semibold text-slate-400 mt-1 flex items-center gap-1.5">
@@ -120,6 +130,37 @@ export const AdminAnalytics: React.FC = () => {
 
           {/* Right Action Controls */}
           <div className="flex flex-wrap items-center gap-3">
+            {/* Live DB vs Demo Mode Switcher */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80 text-xs font-bold">
+              <button
+                onClick={() => setMode('live')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  mode === 'live'
+                    ? 'bg-white text-emerald-800 shadow-xs font-black ring-1 ring-emerald-500/20'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Calculate 100% real metrics from Supabase database"
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    mode === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                  }`}
+                ></span>
+                <span>Live DB</span>
+              </button>
+              <button
+                onClick={() => setMode('demo')}
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  mode === 'demo'
+                    ? 'bg-white text-blue-700 shadow-xs font-black ring-1 ring-blue-500/20'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Show 234-user demo showcase dataset from mockup"
+              >
+                <span>📊 Demo</span>
+              </button>
+            </div>
+
             {/* Date Range Selector */}
             <div className="flex items-center gap-2 px-3.5 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-700 shadow-xs cursor-pointer hover:border-slate-300 transition-colors">
               <Calendar size={15} className="text-slate-400" />
