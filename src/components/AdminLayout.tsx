@@ -9,7 +9,8 @@ import {
   ClipboardList,
   TrendingUp,
   Building2,
-  Lock
+  Lock,
+  BarChart3
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -81,6 +82,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, activeTab, s
   const navItems = [
     { id: 'logs', name: 'Activity Log', icon: ClipboardList, description: 'Manage student logs', path: '/admin', roles: ['admin', 'super_admin'] },
     { id: 'students', name: 'Student Directory', icon: Users, description: 'User management', path: '/admin/students', roles: ['admin', 'super_admin'] },
+    { id: 'analytics', name: 'Product Analytics', icon: BarChart3, description: 'Cohort & product metrics', path: '/admin/analytics', roles: ['admin', 'super_admin'] },
     { id: 'reports', name: 'Analytical Reports', icon: TrendingUp, description: 'View progress charts', path: '/admin/reports', roles: ['admin', 'super_admin'] },
     { id: 'baces', name: 'Manage BACEs', icon: Building2, description: 'Center management', path: '/admin/baces', roles: ['super_admin'] },
     { id: 'change-password', name: 'Change Password', icon: Lock, description: 'Update password', path: '/change-password', roles: ['admin', 'super_admin'] },

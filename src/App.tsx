@@ -9,6 +9,7 @@ import { StudentAICoach } from './pages/StudentAICoach';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
 import { AdminBaces } from './pages/AdminBaces';
+import { AdminAnalytics } from './pages/AdminAnalytics';
 import { ForceChangePassword } from './pages/ForceChangePassword';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from './lib/supabase';
@@ -246,6 +247,17 @@ function App() {
           element={
             session && (role === 'admin' || role === 'super_admin') ? (
               <AdminReports />
+            ) : (
+              <Navigate to={session ? "/dashboard" : "/login"} replace />
+            )
+          } 
+        />
+
+        <Route 
+          path="/admin/analytics" 
+          element={
+            session && (role === 'admin' || role === 'super_admin') ? (
+              <AdminAnalytics />
             ) : (
               <Navigate to={session ? "/dashboard" : "/login"} replace />
             )
