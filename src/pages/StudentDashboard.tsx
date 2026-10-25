@@ -26,6 +26,7 @@ import studashMobImg from '../assets/studash_mob.png';
 import studashImgF from '../assets/studash_f.png';
 import studashMobImgF from '../assets/studash_mob_f.png';
 import { SadhanaDayDetail } from '../components/SadhanaDayDetail';
+import { PersonalBenchmarksModal } from '../components/PersonalBenchmarksModal';
 import type { SadhanaEntry } from '../types/index';
 
 // Metric label helpers — richer gradients + button accents per goal type
@@ -142,6 +143,7 @@ export const StudentDashboard = () => {
   const [userTargets, setUserTargets] = useState<any[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isAICoachModalOpen, setIsAICoachModalOpen] = useState(false);
+  const [isStandardsModalOpen, setIsStandardsModalOpen] = useState(false);
   const [streaks, setStreaks] = useState({ currentStreak: 0, longestStreak: 0 });
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -235,9 +237,18 @@ export const StudentDashboard = () => {
       setTodayEntry(entriesList.find((e: any) => e.date === todayStr) || null);
       setYesterdayEntry(entriesList.find((e: any) => e.date === yesterdayStr) || null);
 
+      // Only count entries where user actually submitted sadhana activity (rounds > 0 || reading > 0 || hearing > 0 || seva > 0 || wakeup_time logged)
+      const validSadhanaEntries = entriesList.filter((e: any) => 
+        (e.rounds_completed || 0) > 0 ||
+        (e.reading_minutes || 0) > 0 ||
+        (e.hearing_minutes || 0) > 0 ||
+        (e.seva_minutes || 0) > 0 ||
+        (e.wakeup_time && typeof e.wakeup_time === 'string' && e.wakeup_time.trim() !== '')
+      );
+
       // Compute Active & Longest Sadhana Logging Streak
-      if (entriesList.length > 0) {
-        const datesSet = new Set(entriesList.map((e: any) => e.date));
+      if (validSadhanaEntries.length > 0) {
+        const datesSet = new Set(validSadhanaEntries.map((e: any) => e.date));
         const sortedDates = Array.from(datesSet).sort();
 
         let longest = 0;
@@ -276,6 +287,8 @@ export const StudentDashboard = () => {
         }
 
         setStreaks({ currentStreak: current, longestStreak: Math.max(longest, current) });
+      } else {
+        setStreaks({ currentStreak: 0, longestStreak: 0 });
       }
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -385,6 +398,8 @@ export const StudentDashboard = () => {
     },
   ];
 
+  const isPersonal = !userProfile?.bace_id || userProfile?.practice_type === 'personal';
+
   return (
     <StudentLayout>
       <div className="space-y-4 w-full animate-in fade-in duration-500">
@@ -414,7 +429,16 @@ export const StudentDashboard = () => {
                     onClick={() => navigate('/targets')}
                     className="inline-block px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors cursor-pointer"
                   >
-                    🎓 ISKCON BACE STUDENT
+                    🎓 ISKCON STUDENT
+                  </button>
+                )}
+
+                {isPersonal && (
+                  <button
+                    onClick={() => setIsStandardsModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/25 hover:bg-emerald-500/40 backdrop-blur-md border border-emerald-400/40 text-emerald-200 rounded-full text-xs font-bold transition-all cursor-pointer"
+                  >
+                    <span>🪷 Configure My Standards</span>
                   </button>
                 )}
 
@@ -444,7 +468,7 @@ export const StudentDashboard = () => {
                   </span>
                 )}
               </p>
-              <div className="flex flex-wrap gap-2 justify-start">
+              <div className="flex flex-wrap gap-2.5 justify-start">
                 <button
                   onClick={() => navigate('/ai-coach')}
                   className="px-5 py-2.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-extrabold transition-all flex items-center gap-2 text-sm cursor-pointer shadow-lg shadow-orange-500/25 hover:scale-105"
@@ -756,6 +780,16 @@ export const StudentDashboard = () => {
           userId={userProfile.id}
           isOpen={isAICoachModalOpen}
           onClose={() => setIsAICoachModalOpen(false)}
+        />
+      )}
+
+      {/* My Personal Sadhana Standards Modal */}
+      {userProfile?.id && (
+        <PersonalBenchmarksModal
+          userId={userProfile.id}
+          isOpen={isStandardsModalOpen}
+          onClose={() => setIsStandardsModalOpen(false)}
+          onSaved={() => fetchAllData(userProfile.id)}
         />
       )}
     </StudentLayout>
