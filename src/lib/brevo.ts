@@ -211,3 +211,110 @@ export const sendBrevoMissingSadhanaDigest = async ({
   });
 };
 
+/**
+ * Send approval confirmation email to Center In-charge with Center Access Code & onboarding instructions.
+ */
+export const sendBrevoCenterApprovedEmail = async ({
+  toEmail,
+  inchargeName,
+  centerName,
+  accessCode,
+  loginUrl = 'https://sadhnaspace.vercel.app/login',
+}: {
+  toEmail: string;
+  inchargeName: string;
+  centerName: string;
+  accessCode: string;
+  loginUrl?: string;
+}) => {
+  const subject = `🎉 Congratulations! Your Center "${centerName}" is Approved on Sadhana Track`;
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+        .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; padding: 36px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+        .header { text-align: center; margin-bottom: 28px; }
+        .logo { font-size: 26px; font-weight: 900; color: #ea580c; letter-spacing: -0.5px; }
+        .badge { display: inline-block; background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 9999px; text-transform: uppercase; margin-top: 8px; border: 1px solid #a7f3d0; }
+        .title { font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 14px; }
+        .text { font-size: 14px; line-height: 1.6; color: #475569; margin: 14px 0; }
+        .code-box { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border: 2px dashed #f97316; padding: 22px; border-radius: 16px; text-align: center; margin: 24px 0; }
+        .code-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #c2410c; margin-bottom: 6px; }
+        .code-value { font-size: 32px; font-weight: 900; letter-spacing: 4px; color: #ea580c; font-family: monospace; }
+        .step-box { background: #f8fafc; border-radius: 14px; padding: 18px 20px; margin: 18px 0; border: 1px solid #e2e8f0; }
+        .step-item { display: flex; gap: 12px; margin-bottom: 12px; }
+        .step-item:last-child { margin-bottom: 0; }
+        .step-num { width: 24px; height: 24px; background: #ea580c; color: #ffffff; border-radius: 50%; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .step-text { font-size: 13px; color: #334155; line-height: 1.5; }
+        .btn { display: inline-block; background: #ea580c; color: #ffffff !important; font-weight: 800; font-size: 14px; padding: 14px 32px; border-radius: 12px; text-decoration: none; margin-top: 18px; text-align: center; }
+        .footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <div class="logo">🪷 Sadhana Track</div>
+          <div class="badge">Center Approved & Activated</div>
+          <div class="title">Hare Krishna, ${inchargeName}! 🙏</div>
+        </div>
+
+        <p class="text">
+          We are pleased to inform you that your application for <strong>${centerName}</strong> has been officially reviewed and approved by the Super Admin.
+        </p>
+
+        <div class="code-box">
+          <div class="code-label">Your Center Access Code</div>
+          <div class="code-value">${accessCode}</div>
+          <p style="font-size: 12px; color: #7c2d12; margin: 8px 0 0 0; font-weight: 600;">
+            Share this code with your students so they can join your center during signup.
+          </p>
+        </div>
+
+        <div class="step-box">
+          <div style="font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 12px;">
+            📋 How to Onboard Your Students:
+          </div>
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-text">
+              <strong>Share Access Code:</strong> Ask your students to visit <a href="${loginUrl}" style="color: #ea580c; font-weight: 700;">Sadhana Track</a> and click <em>"Sign up now"</em>.
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-text">
+              <strong>Select "Joining Center":</strong> Students enter their name, email, phone number, and enter your Center Access Code: <strong style="color: #ea580c; font-family: monospace;">${accessCode}</strong>.
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-text">
+              <strong>Track & Guide:</strong> You can log in using your registered email and password to view your student directory, daily sadhana logs, and analytical reports in your Center Admin portal.
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center;">
+          <a href="${loginUrl}" class="btn">Log In to Center Admin Portal →</a>
+        </div>
+
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} Sadhana Track • Spiritual Excellence Platform
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendBrevoEmail({
+    toEmail,
+    toName: inchargeName,
+    subject,
+    htmlContent,
+  });
+};
+

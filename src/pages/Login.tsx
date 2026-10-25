@@ -14,7 +14,12 @@ import {
   ArrowRight, 
   RefreshCw, 
   Sparkles,
-  X
+  X,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  MapPin,
+  Users
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import loginImg from '../assets/loginimg.png';
@@ -32,9 +37,15 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Password Visibility States
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
   // Step-based Signup Flow States
   const [signupStep, setSignupStep] = useState<'create' | 'verify' | 'ready'>('create');
-  const [practiceType, setPracticeType] = useState<'b2b' | 'b2c'>('b2b');
+  const [practiceType, setPracticeType] = useState<'b2b' | 'b2c' | 'incharge'>('b2b');
   const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -45,6 +56,13 @@ export const Login = () => {
   const [verifiedBaceName, setVerifiedBaceName] = useState('');
   const [otpInput, setOtpInput] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
+
+  // Center In-Charge States
+  const [centerName, setCenterName] = useState('');
+  const [centerLocation, setCenterLocation] = useState('');
+  const [studentCount, setStudentCount] = useState('');
+  const [centerNotes, setCenterNotes] = useState('');
+  const [inchargeSubmitted, setInchargeSubmitted] = useState(false);
 
   // Forgot Password Modal States
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -95,7 +113,26 @@ export const Login = () => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if there is an incharge application pending Super Admin approval
+        try {
+          const { data: pendingReq } = await supabase
+            .from('center_requests')
+            .select('center_name, status')
+            .ilike('email', email.trim())
+            .eq('status', 'pending')
+            .maybeSingle();
+
+          if (pendingReq) {
+            throw new Error(`Your Center In-charge application for "${pendingReq.center_name}" is currently awaiting Super Admin review. You will receive an official approval email with your Center Access Code once activated.`);
+          }
+        } catch (innerErr: any) {
+          if (innerErr.message && innerErr.message.includes('awaiting Super Admin review')) {
+            throw innerErr;
+          }
+        }
+        throw error;
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to login. Please check your credentials.');
     } finally {
@@ -117,6 +154,12 @@ export const Login = () => {
 
     if (!cleanName || !cleanEmail || !cleanPhone || !password || !confirmPassword) {
       setError('Please fill in all required fields.');
+      setLoading(false);
+      return;
+    }
+
+    if (practiceType === 'incharge' && !centerName.trim()) {
+      setError('Please enter your Center / BACE Name.');
       setLoading(false);
       return;
     }
@@ -167,6 +210,20 @@ export const Login = () => {
         throw new Error('This email address is already registered. Please sign in or use a different email.');
       }
 
+      // Check if Center Incharge application is already pending
+      if (practiceType === 'incharge') {
+        const { data: pendingReq } = await supabase
+          .from('center_requests')
+          .select('id, status, center_name')
+          .ilike('email', cleanEmail)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (pendingReq) {
+          throw new Error(`A Center In-charge application for "${pendingReq.center_name}" with this email is already pending Super Admin approval.`);
+        }
+      }
+
       // 2. Validate Center Access Code via RPC (Only for B2B)
       if (practiceType === 'b2b') {
         const { data: baceData, error: baceErr } = await supabase.rpc('get_bace_by_access_key', {
@@ -179,6 +236,9 @@ export const Login = () => {
 
         setVerifiedBaceId(baceData[0].id);
         setVerifiedBaceName(baceData[0].name);
+      } else if (practiceType === 'incharge') {
+        setVerifiedBaceId(null);
+        setVerifiedBaceName(centerName.trim());
       } else {
         setVerifiedBaceId(null);
         setVerifiedBaceName('Personal Practice');
@@ -278,7 +338,29 @@ export const Login = () => {
       // Delete used OTP
       await supabase.from('password_otps').delete().eq('id', dbOtps[0].id);
 
-      // 2. Register user in Supabase Auth
+      // Handle Center In-charge Request Submission
+      if (practiceType === 'incharge') {
+        const { error: inchargeErr } = await supabase.from('center_requests').insert({
+          full_name: fullName.trim(),
+          email: cleanEmail,
+          phone: phone.trim(),
+          center_name: centerName.trim(),
+          location: centerLocation.trim(),
+          student_count: parseInt(studentCount) || 0,
+          notes: centerNotes.trim(),
+          password: password,
+          status: 'pending'
+        });
+
+        if (inchargeErr) throw inchargeErr;
+
+        setInchargeSubmitted(true);
+        setError(null);
+        setSuccessMessage(null);
+        return;
+      }
+
+      // 2. Register regular user in Supabase Auth (B2B student or B2C personal)
       const { error: signUpError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -647,13 +729,21 @@ export const Login = () => {
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
-                        type="password"
+                        type={showLoginPassword ? 'text' : 'password'}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 sm:py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
+                        className="w-full pl-11 pr-11 py-3 sm:py-3.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-sm font-medium bg-white shadow-xs"
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showLoginPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 
@@ -689,34 +779,91 @@ export const Login = () => {
               ) : (
                 /* 3-STEP SIGNUP FORM */
                 <>
-                  {/* STEP 1: CREATE ACCOUNT */}
-                  {signupStep === 'create' && (
+                  {inchargeSubmitted && (
+                    <div className="py-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-md border border-blue-100">
+                        <ShieldCheck size={36} />
+                      </div>
+                      <div>
+                        <span className="inline-block px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-black uppercase tracking-wider mb-2">
+                          ⏳ Super Admin Review Pending
+                        </span>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Application Submitted! 🙏</h3>
+                        <p className="text-xs text-slate-600 mt-2 font-medium leading-relaxed max-w-sm mx-auto">
+                          Hare Krishna, <span className="font-bold text-slate-900">{fullName}</span>! Your Center In-charge application for <span className="font-bold text-blue-700">"{centerName}"</span> has been submitted successfully.
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-left text-xs space-y-2 text-slate-700">
+                        <div className="flex items-center gap-2 font-bold text-slate-900">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                          <span>Email address verified ({email})</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-base shrink-0">🏛️</span>
+                          <span className="text-slate-600">Our Super Admin will verify your center details and assign your center to your account.</span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="text-base shrink-0">📧</span>
+                          <span className="text-slate-600">You will receive an official approval email containing your <strong>unique Center Access Code</strong> and onboarding instructions.</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSignUp(false);
+                          setInchargeSubmitted(false);
+                          setSignupStep('create');
+                          setError(null);
+                          setSuccessMessage(null);
+                        }}
+                        className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-md transition-all cursor-pointer"
+                      >
+                        Return to Sign In →
+                      </button>
+                    </div>
+                  )}
+
+                  {!inchargeSubmitted && signupStep === 'create' && (
                     <form onSubmit={handleStep1CreateAccount} className="space-y-2.5">
-                      {/* B2B vs B2C Tab Selector */}
-                      <div className="flex p-1 bg-slate-100 rounded-xl mb-3 text-xs font-bold">
+                      {/* 3-Way Journey Selector Tabs */}
+                      <div className="flex p-1 bg-slate-100 rounded-xl mb-3 text-xs font-bold gap-1">
                         <button
                           type="button"
                           onClick={() => setPracticeType('b2b')}
-                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
                             practiceType === 'b2b'
                               ? 'bg-white text-orange-600 shadow-xs font-black'
                               : 'text-slate-500 hover:text-slate-800'
                           }`}
                         >
                           <Building2 size={13} />
-                          <span>Joining Center</span>
+                          <span>Join Center</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => setPracticeType('b2c')}
-                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
                             practiceType === 'b2c'
                               ? 'bg-white text-emerald-700 shadow-xs font-black'
                               : 'text-slate-500 hover:text-slate-800'
                           }`}
                         >
                           <span>🪷</span>
-                          <span>Personal Practice</span>
+                          <span>Personal</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPracticeType('incharge')}
+                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            practiceType === 'incharge'
+                              ? 'bg-white text-blue-700 shadow-xs font-black'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <span>🏛️</span>
+                          <span>Center Leader</span>
                         </button>
                       </div>
 
@@ -780,13 +927,21 @@ export const Login = () => {
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                             <input
-                              type="password"
+                              type={showSignupPassword ? 'text' : 'password'}
                               required
                               value={password}
                               onChange={(e) => setPassword(e.target.value)}
-                              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
+                              className="w-full pl-9 pr-9 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
                               placeholder="••••••••"
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowSignupPassword(!showSignupPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer transition-colors"
+                              tabIndex={-1}
+                            >
+                              {showSignupPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
                           </div>
                         </div>
 
@@ -795,17 +950,25 @@ export const Login = () => {
                           <div className="relative">
                             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
                             <input
-                              type="password"
+                              type={showSignupConfirmPassword ? 'text' : 'password'}
                               required
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
-                              className={`w-full pl-9 pr-3 py-2.5 border rounded-xl outline-none transition-all text-xs font-medium bg-white shadow-xs ${
+                              className={`w-full pl-9 pr-9 py-2.5 border rounded-xl outline-none transition-all text-xs font-medium bg-white shadow-xs ${
                                 confirmPassword.length > 0 && password !== confirmPassword
                                   ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
                                   : 'border-slate-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20'
                               }`}
                               placeholder="••••••••"
                             />
+                            <button
+                              type="button"
+                              onClick={() => setShowSignupConfirmPassword(!showSignupConfirmPassword)}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer transition-colors"
+                              tabIndex={-1}
+                            >
+                              {showSignupConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
                           </div>
                           {confirmPassword.length > 0 && password !== confirmPassword && (
                             <p className="text-[10px] font-bold text-red-500 mt-1 ml-1 animate-in fade-in">
@@ -815,7 +978,81 @@ export const Login = () => {
                         </div>
                       </div>
 
-                      {practiceType === 'b2b' ? (
+                      {practiceType === 'incharge' ? (
+                        <div className="space-y-2 pt-1 border-t border-slate-100">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">
+                              Center / BACE Name <span className="text-orange-600">*</span>
+                            </label>
+                            <div className="relative">
+                              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                              <input
+                                type="text"
+                                required
+                                value={centerName}
+                                onChange={(e) => setCenterName(e.target.value)}
+                                className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-xs font-bold bg-white shadow-xs"
+                                placeholder="e.g. ISKCON Youth Forum Pune"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">
+                                City / Location
+                              </label>
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                                <input
+                                  type="text"
+                                  value={centerLocation}
+                                  onChange={(e) => setCenterLocation(e.target.value)}
+                                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
+                                  placeholder="e.g. Pune, Maharashtra"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">
+                                Est. Student Count
+                              </label>
+                              <div className="relative">
+                                <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={studentCount}
+                                  onChange={(e) => setStudentCount(e.target.value)}
+                                  className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-xs font-mono font-bold bg-white shadow-xs"
+                                  placeholder="e.g. 20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">
+                              Additional Details / Preaching Program (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={centerNotes}
+                              onChange={(e) => setCenterNotes(e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
+                              placeholder="e.g. Affiliated to ISKCON Chowpatty youth wing"
+                            />
+                          </div>
+
+                          <div className="p-2.5 bg-blue-50/70 border border-blue-200/60 rounded-xl flex items-center gap-2 text-xs text-blue-900">
+                            <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                            <p className="text-[10px] font-medium leading-tight text-blue-700">
+                              Requires Super Admin verification. You will receive an official approval email with your Center Access Code once activated.
+                            </p>
+                          </div>
+                        </div>
+                      ) : practiceType === 'b2b' ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Gender</label>
@@ -872,11 +1109,21 @@ export const Login = () => {
 
                       <button
                         type="submit"
-                        disabled={loading || (confirmPassword.length > 0 && password !== confirmPassword) || (phone.length > 0 && phone.length < 10)}
-                        className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3"
+                        disabled={loading || (confirmPassword.length > 0 && password !== confirmPassword) || (phone.length > 0 && phone.length < 10) || (practiceType === 'incharge' && !centerName.trim())}
+                        className={`w-full text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-3 ${
+                          practiceType === 'incharge'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
+                            : 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 shadow-orange-500/20'
+                        }`}
                       >
                         {loading ? <Loader2 className="animate-spin" size={16} /> : null}
-                        <span>{loading ? 'Validating & Sending Code...' : 'Create Account →'}</span>
+                        <span>
+                          {loading 
+                            ? 'Validating & Sending Code...' 
+                            : practiceType === 'incharge' 
+                              ? 'Verify Email & Submit Request →' 
+                              : 'Create Account →'}
+                        </span>
                       </button>
 
                       {/* Already have an account link */}
@@ -1139,13 +1386,21 @@ export const Login = () => {
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
-                      type="password"
+                      type={showNewPassword ? 'text' : 'password'}
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm font-medium bg-white"
+                      className="w-full pl-11 pr-11 py-3 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm font-medium bg-white"
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
                 </div>
 
@@ -1164,10 +1419,10 @@ export const Login = () => {
         </div>
       )}
 
-      {/* JOURNEY SELECTOR POPUP (B2B vs B2C) */}
+      {/* JOURNEY SELECTOR POPUP (3 ENROLLMENT PATHWAYS) */}
       {showJourneyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg p-6 sm:p-8 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-3xl p-6 sm:p-8 relative my-8">
             <button
               onClick={() => setShowJourneyModal(false)}
               className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
@@ -1181,12 +1436,12 @@ export const Login = () => {
                 <span>Choose Your Path</span>
               </div>
               <h3 className="text-2xl font-black text-slate-900 tracking-tight">How will you practice?</h3>
-              <p className="text-xs text-slate-500 mt-1 font-medium max-w-sm mx-auto">
-                Select your enrollment model to personalize your daily sadhana tracking experience.
+              <p className="text-xs text-slate-500 mt-1 font-medium max-w-md mx-auto">
+                Select your enrollment model to personalize your sadhana tracking and management experience.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               {/* Option 1: B2B Joining Center */}
               <button
                 type="button"
@@ -1194,22 +1449,22 @@ export const Login = () => {
                   setPracticeType('b2b');
                   setShowJourneyModal(false);
                 }}
-                className={`p-5 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
                   practiceType === 'b2b'
                     ? 'border-orange-500 bg-orange-50/40 shadow-md ring-2 ring-orange-500/20'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
                 }`}
               >
                 <div>
-                  <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
-                    <Building2 size={24} />
+                  <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-2.5">
+                    <Building2 size={20} />
                   </div>
-                  <h4 className="text-base font-black text-slate-900">I am joining a Center</h4>
+                  <h4 className="text-sm font-black text-slate-900">I am joining a Center</h4>
                   <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
                     For students belonging to an ISKCON center or BACE asked by their coordinator.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-orange-600">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-orange-600">
                   <span>Center Code Required</span>
                   <span>→</span>
                 </div>
@@ -1222,23 +1477,54 @@ export const Login = () => {
                   setPracticeType('b2c');
                   setShowJourneyModal(false);
                 }}
-                className={`p-5 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
                   practiceType === 'b2c'
                     ? 'border-emerald-500 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
                     : 'border-slate-200 hover:border-slate-300 bg-white'
                 }`}
               >
                 <div>
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mb-2.5">
                     🪷
                   </div>
-                  <h4 className="text-base font-black text-slate-900">Personal Practice</h4>
+                  <h4 className="text-sm font-black text-slate-900">Personal Practice</h4>
                   <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
                     For individuals who want to track sadhana independently at their own pace.
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-emerald-600">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-emerald-600">
                   <span>No Code Needed</span>
+                  <span>→</span>
+                </div>
+              </button>
+
+              {/* Option 3: Center In-charge / Leader */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPracticeType('incharge');
+                  setShowJourneyModal(false);
+                }}
+                className={`p-4 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
+                  practiceType === 'incharge'
+                    ? 'border-blue-500 bg-blue-50/40 shadow-md ring-2 ring-blue-500/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center mb-2.5">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-sm font-black text-slate-900">Center In-charge</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 text-blue-800 font-extrabold rounded">Leader</span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                    I manage students under an ISKCON center or BACE.
+                  </p>
+                </div>
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-blue-600">
+                  <span>Super Admin Verification</span>
                   <span>→</span>
                 </div>
               </button>

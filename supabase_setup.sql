@@ -358,3 +358,49 @@ BEGIN
   RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, extensions;
+
+-- ========================================================
+-- 13. Center In-Charge Requests Table & Policies
+-- ========================================================
+CREATE TABLE IF NOT EXISTS public.center_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  center_name TEXT NOT NULL,
+  location TEXT,
+  student_count INTEGER DEFAULT 0,
+  notes TEXT,
+  password TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  bace_id UUID REFERENCES public.baces(id) ON DELETE SET NULL,
+  rejection_reason TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  reviewed_at TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE public.center_requests ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can submit a center request" ON public.center_requests;
+CREATE POLICY "Anyone can submit a center request" 
+ON public.center_requests FOR INSERT 
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated users can view center requests" ON public.center_requests;
+CREATE POLICY "Authenticated users can view center requests" 
+ON public.center_requests FOR SELECT 
+TO authenticated 
+USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can update center requests" ON public.center_requests;
+CREATE POLICY "Authenticated users can update center requests" 
+ON public.center_requests FOR UPDATE 
+TO authenticated 
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Authenticated users can delete center requests" ON public.center_requests;
+CREATE POLICY "Authenticated users can delete center requests" 
+ON public.center_requests FOR DELETE 
+TO authenticated 
+USING (true);
