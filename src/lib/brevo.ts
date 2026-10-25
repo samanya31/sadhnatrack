@@ -54,7 +54,6 @@ export const sendBrevoEmail = async ({
   }
 
   const result = await response.json().catch(() => ({}));
-  console.log('✅ Brevo Email sent successfully to:', toEmail, result);
   return result;
 };
 

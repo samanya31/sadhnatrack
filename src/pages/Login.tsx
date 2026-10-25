@@ -34,12 +34,14 @@ export const Login = () => {
 
   // Step-based Signup Flow States
   const [signupStep, setSignupStep] = useState<'create' | 'verify' | 'ready'>('create');
+  const [practiceType, setPracticeType] = useState<'b2b' | 'b2c'>('b2b');
+  const [showJourneyModal, setShowJourneyModal] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [gender, setGender] = useState('male');
   const [baceCode, setBaceCode] = useState('');
-  const [verifiedBaceId, setVerifiedBaceId] = useState('');
+  const [verifiedBaceId, setVerifiedBaceId] = useState<string | null>(null);
   const [verifiedBaceName, setVerifiedBaceName] = useState('');
   const [otpInput, setOtpInput] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
@@ -113,8 +115,14 @@ export const Login = () => {
     const cleanName = fullName.trim();
     const cleanCode = baceCode.trim().toUpperCase();
 
-    if (!cleanName || !cleanEmail || !cleanPhone || !password || !confirmPassword || !cleanCode) {
+    if (!cleanName || !cleanEmail || !cleanPhone || !password || !confirmPassword) {
       setError('Please fill in all required fields.');
+      setLoading(false);
+      return;
+    }
+
+    if (practiceType === 'b2b' && !cleanCode) {
+      setError('Center Access Code is required for center enrollment. (Choose "Personal Practice" if you are an independent practitioner).');
       setLoading(false);
       return;
     }
@@ -159,21 +167,25 @@ export const Login = () => {
         throw new Error('This email address is already registered. Please sign in or use a different email.');
       }
 
-      // 2. Validate Center Access Code via RPC
-      const { data: baceData, error: baceErr } = await supabase.rpc('get_bace_by_access_key', {
-        key_input: cleanCode
-      });
+      // 2. Validate Center Access Code via RPC (Only for B2B)
+      if (practiceType === 'b2b') {
+        const { data: baceData, error: baceErr } = await supabase.rpc('get_bace_by_access_key', {
+          key_input: cleanCode
+        });
 
-      if (baceErr || !baceData || baceData.length === 0) {
-        throw new Error('Invalid Center Access Code. Please check with your center coordinator (e.g. HALD-101).');
+        if (baceErr || !baceData || baceData.length === 0) {
+          throw new Error('Invalid Center Access Code. Please check with your center coordinator (e.g. HALD-101).');
+        }
+
+        setVerifiedBaceId(baceData[0].id);
+        setVerifiedBaceName(baceData[0].name);
+      } else {
+        setVerifiedBaceId(null);
+        setVerifiedBaceName('Personal Practice');
       }
-
-      setVerifiedBaceId(baceData[0].id);
-      setVerifiedBaceName(baceData[0].name);
 
       // 3. Generate & store 6-digit OTP code
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log('🔑 [Signup OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -209,7 +221,6 @@ export const Login = () => {
 
     try {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log('🔑 [Signup Resent OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -276,7 +287,8 @@ export const Login = () => {
             full_name: fullName.trim(),
             phone: phone.trim(),
             role: 'student',
-            bace_id: verifiedBaceId,
+            bace_id: practiceType === 'b2b' ? verifiedBaceId : null,
+            practice_type: practiceType === 'b2b' ? 'center' : 'personal',
             gender: gender,
             created_by_admin: false,
             force_password_change: false
@@ -354,7 +366,6 @@ export const Login = () => {
       }
 
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log('🔑 [Forgot Password OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -391,7 +402,6 @@ export const Login = () => {
 
     try {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      console.log('🔑 [Forgot Password Resent OTP Code]:', generatedOtp);
 
       await supabase.from('password_otps').insert({
         email: cleanEmail,
@@ -665,6 +675,7 @@ export const Login = () => {
                         onClick={() => {
                           setIsSignUp(true);
                           setSignupStep('create');
+                          setShowJourneyModal(true);
                           setError(null);
                           setSuccessMessage(null);
                         }}
@@ -681,6 +692,34 @@ export const Login = () => {
                   {/* STEP 1: CREATE ACCOUNT */}
                   {signupStep === 'create' && (
                     <form onSubmit={handleStep1CreateAccount} className="space-y-2.5">
+                      {/* B2B vs B2C Tab Selector */}
+                      <div className="flex p-1 bg-slate-100 rounded-xl mb-3 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setPracticeType('b2b')}
+                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            practiceType === 'b2b'
+                              ? 'bg-white text-orange-600 shadow-xs font-black'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <Building2 size={13} />
+                          <span>Joining Center</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPracticeType('b2c')}
+                          className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            practiceType === 'b2c'
+                              ? 'bg-white text-emerald-700 shadow-xs font-black'
+                              : 'text-slate-500 hover:text-slate-800'
+                          }`}
+                        >
+                          <span>🪷</span>
+                          <span>Personal Practice</span>
+                        </button>
+                      </div>
+
                       <div>
                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Full Name</label>
                         <div className="relative">
@@ -776,35 +815,60 @@ export const Login = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Gender</label>
-                          <select
-                            value={gender}
-                            onChange={(e) => setGender(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
-                          >
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
+                      {practiceType === 'b2b' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Gender</label>
+                            <select
+                              value={gender}
+                              onChange={(e) => setGender(e.target.value)}
+                              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
+                            >
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
 
-                        <div>
-                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Center Access Code</label>
-                          <div className="relative">
-                            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                            <input
-                              type="text"
-                              required
-                              value={baceCode}
-                              onChange={(e) => setBaceCode(e.target.value.toUpperCase())}
-                              className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-mono font-bold bg-white uppercase shadow-xs"
-                              placeholder="HALD-101"
-                            />
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Center Access Code</label>
+                            <div className="relative">
+                              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                              <input
+                                type="text"
+                                required
+                                value={baceCode}
+                                onChange={(e) => setBaceCode(e.target.value.toUpperCase())}
+                                className="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-mono font-bold bg-white uppercase shadow-xs"
+                                placeholder="HALD-101"
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1">Gender</label>
+                            <select
+                              value={gender}
+                              onChange={(e) => setGender(e.target.value)}
+                              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all text-xs font-medium bg-white shadow-xs"
+                            >
+                              <option value="male">Male</option>
+                              <option value="female">Female</option>
+                              <option value="other">Other</option>
+                            </select>
+                          </div>
+                          
+                          <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/60 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
+                            <span className="text-base shrink-0">🪷</span>
+                            <div className="min-w-0">
+                              <p className="font-black text-[11px] leading-tight">Personal Practice (No Center Code)</p>
+                              <p className="text-[10px] text-emerald-600 font-medium leading-tight mt-0.5">You can set your own personal sadhana standards and benchmarks inside.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <button
                         type="submit"
@@ -1096,6 +1160,89 @@ export const Login = () => {
               </form>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* JOURNEY SELECTOR POPUP (B2B vs B2C) */}
+      {showJourneyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg p-6 sm:p-8 relative">
+            <button
+              onClick={() => setShowJourneyModal(false)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="mb-6 text-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-100 text-orange-700 text-[10px] font-black uppercase tracking-widest mb-2">
+                <Sparkles size={12} />
+                <span>Choose Your Path</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">How will you practice?</h3>
+              <p className="text-xs text-slate-500 mt-1 font-medium max-w-sm mx-auto">
+                Select your enrollment model to personalize your daily sadhana tracking experience.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Option 1: B2B Joining Center */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPracticeType('b2b');
+                  setShowJourneyModal(false);
+                }}
+                className={`p-5 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
+                  practiceType === 'b2b'
+                    ? 'border-orange-500 bg-orange-50/40 shadow-md ring-2 ring-orange-500/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
+                    <Building2 size={24} />
+                  </div>
+                  <h4 className="text-base font-black text-slate-900">I am joining a Center</h4>
+                  <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                    For students belonging to an ISKCON center or BACE asked by their coordinator.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-orange-600">
+                  <span>Center Code Required</span>
+                  <span>→</span>
+                </div>
+              </button>
+
+              {/* Option 2: B2C Personal Practice */}
+              <button
+                type="button"
+                onClick={() => {
+                  setPracticeType('b2c');
+                  setShowJourneyModal(false);
+                }}
+                className={`p-5 rounded-2xl border-2 text-left transition-all hover:scale-[1.02] cursor-pointer flex flex-col justify-between ${
+                  practiceType === 'b2c'
+                    ? 'border-emerald-500 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
+                }`}
+              >
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl mb-3">
+                    🪷
+                  </div>
+                  <h4 className="text-base font-black text-slate-900">Personal Practice</h4>
+                  <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
+                    For individuals who want to track sadhana independently at their own pace.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-emerald-600">
+                  <span>No Code Needed</span>
+                  <span>→</span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       )}
