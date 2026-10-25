@@ -21,16 +21,19 @@ import {
   Star,
   Layers,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  Settings
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { TargetWelcomeModal } from '../components/TargetWelcomeModal';
 import { TargetCreateModal } from '../components/TargetCreateModal';
+import { PersonalBenchmarksModal } from '../components/PersonalBenchmarksModal';
 
 export const StudentTargets = () => {
   const [targets, setTargets] = useState<any[]>([]);
   const [showWelcomeTargets, setShowWelcomeTargets] = useState(false);
   const [showCreateTarget, setShowCreateTarget] = useState(false);
+  const [isStandardsModalOpen, setIsStandardsModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'completed'>('active');
@@ -193,6 +196,8 @@ export const StudentTargets = () => {
   }).length;
   const activeTargetsCount = totalTargetsCount - completedTargetsCount;
 
+  const isPersonal = !userProfile?.bace_id || userProfile?.practice_type === 'personal';
+
   return (
     <StudentLayout>
       <div className="max-w-[1600px] mx-auto space-y-8 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -213,7 +218,7 @@ export const StudentTargets = () => {
               <button
                 type="button"
                 onClick={() => setShowWelcomeTargets(true)}
-                className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200 shadow-soft active:scale-95 flex items-center gap-2"
+                className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200 shadow-soft active:scale-95 flex items-center gap-2 cursor-pointer"
               >
                 <Layers size={14} />
                 Swipe Card View
@@ -222,13 +227,41 @@ export const StudentTargets = () => {
             <button
               type="button"
               onClick={() => setShowCreateTarget(true)}
-              className="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-primary-600/20 active:scale-95 flex items-center gap-2"
+              className="px-5 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-primary-600/20 active:scale-95 flex items-center gap-2 cursor-pointer"
             >
               <Target size={14} />
               Create Target
             </button>
           </div>
         </div>
+
+        {/* Dedicated Banner for Personal Practitioners to configure their Daily Sadhana Standards */}
+        {isPersonal && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/70 to-emerald-50/50 border border-emerald-100 shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shadow-xs shrink-0">
+                🪷
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <span>My Personal Sadhana Standards</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold uppercase tracking-wider">Daily Benchmarks</span>
+                </h4>
+                <p className="text-xs text-slate-600 font-medium mt-0.5">
+                  Looking to configure your daily rise time, 16 rounds completion hour, or daily reading/hearing standards?
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsStandardsModalOpen(true)}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 cursor-pointer shrink-0"
+            >
+              <Settings size={14} />
+              <span>Configure Standards</span>
+            </button>
+          </div>
+        )}
 
         {/* Stats Panel */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -607,6 +640,14 @@ export const StudentTargets = () => {
           targets={targets}
           onToggleComplete={handleToggleTargetComplete}
         />
+
+        {userProfile?.id && (
+          <PersonalBenchmarksModal
+            userId={userProfile.id}
+            isOpen={isStandardsModalOpen}
+            onClose={() => setIsStandardsModalOpen(false)}
+          />
+        )}
       </div>
     </StudentLayout>
   );

@@ -192,9 +192,11 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   // 1. Fetch all profiles
   let profileQuery = supabase
     .from('profiles')
-    .select('id, full_name, email, role, bace_id, created_at');
+    .select('id, full_name, email, role, bace_id, practice_type, created_at');
 
-  if (centerId !== 'all') {
+  if (centerId === 'personal') {
+    profileQuery = profileQuery.or('bace_id.is.null,practice_type.eq.personal');
+  } else if (centerId !== 'all') {
     profileQuery = profileQuery.eq('bace_id', centerId);
   }
   const { data: rawProfiles, error: profErr } = await profileQuery;
@@ -209,16 +211,29 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   const { data: rawBaces } = await supabase.from('baces').select('id, name');
   const bacesMap = new Map((rawBaces || []).map((b) => [b.id, b.name]));
 
-  // 3. Fetch all sadhana entries
+  // 3. Fetch all sadhana entries with full activity fields
   const { data: rawEntries, error: entriesErr } = await supabase
     .from('sadhana_entries')
-    .select('id, user_id, date, rounds_completed, reading_minutes, hearing_minutes, created_at')
+    .select('id, user_id, date, rounds_completed, reading_minutes, hearing_minutes, seva_minutes, wakeup_time, created_at')
     .order('date', { ascending: false });
 
   if (entriesErr) throw entriesErr;
 
-  // Filter entries to the selected center's users
+  // Filter entries to the selected scope's users
   const entries = (rawEntries || []).filter((e) => userIds.has(e.user_id));
+
+  // Activity definition: Unique user must record at least ONE sadhana activity in a day
+  const isActivityRecorded = (e: any) => {
+    return (
+      (e.rounds_completed || 0) > 0 ||
+      (e.reading_minutes || 0) > 0 ||
+      (e.hearing_minutes || 0) > 0 ||
+      (e.seva_minutes || 0) > 0 ||
+      (e.wakeup_time && typeof e.wakeup_time === 'string' && e.wakeup_time.trim() !== '')
+    );
+  };
+
+  const activeEntries = entries.filter(isActivityRecorded);
 
   // 4. Time calculations
   const now = new Date();
@@ -228,31 +243,31 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // DAU: users who logged today
-  const todayLogs = entries.filter((e) => e.date === todayStr);
-  const yesterdayLogs = entries.filter((e) => e.date === yesterdayStr);
+  // DAU: Unique users who recorded at least one sadhana activity today
+  const todayLogs = activeEntries.filter((e) => e.date === todayStr);
+  const yesterdayLogs = activeEntries.filter((e) => e.date === yesterdayStr);
   const todayActiveUsers = new Set(todayLogs.map((e) => e.user_id));
   const yesterdayActiveUsers = new Set(yesterdayLogs.map((e) => e.user_id));
   const dau = todayActiveUsers.size;
   const yesterdayDau = yesterdayActiveUsers.size;
   const dauGrowth = yesterdayDau > 0 ? Math.round(((dau - yesterdayDau) / yesterdayDau) * 100) : dau > 0 ? 100 : 0;
 
-  // WAU: users who logged in last 7 days
-  const wauUsers = new Set(entries.filter((e) => e.date >= sevenDaysAgo).map((e) => e.user_id));
+  // WAU: Unique users who recorded at least one activity in last 7 days
+  const wauUsers = new Set(activeEntries.filter((e) => e.date >= sevenDaysAgo).map((e) => e.user_id));
   const wau = wauUsers.size;
   const wauGrowth = Math.min(100, Math.round((wau / Math.max(1, totalUsers)) * 15));
 
-  // MAU: users who logged in last 30 days
-  const mauUsers = new Set(entries.filter((e) => e.date >= thirtyDaysAgo).map((e) => e.user_id));
+  // MAU: Unique users who recorded at least one activity in last 30 days
+  const mauUsers = new Set(activeEntries.filter((e) => e.date >= thirtyDaysAgo).map((e) => e.user_id));
   const mau = mauUsers.size;
   const mauGrowth = Math.min(100, Math.round((mau / Math.max(1, totalUsers)) * 10));
 
-  // Log completion rate: % of total students who submitted today
+  // Log completion rate: % of total students who recorded an activity today
   const logCompletionRate = totalUsers > 0 ? Math.min(100, Math.round((dau / totalUsers) * 100)) : 0;
   const logCompletionGrowth = 5;
 
-  // Activation rate: users who have ever made at least 1 log
-  const usersWithAtLeastOneLog = new Set(entries.map((e) => e.user_id)).size;
+  // Activation rate: users who have ever recorded at least 1 activity
+  const usersWithAtLeastOneLog = new Set(activeEntries.map((e) => e.user_id)).size;
   const activationRate = totalUsers > 0 ? Math.min(100, Math.round((usersWithAtLeastOneLog / totalUsers) * 100)) : 0;
   const activationGrowth = 6;
 
@@ -350,11 +365,11 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
     .from('sadhana_targets')
     .select('id', { count: 'exact' });
 
-  // Compute longest streak by sorting each user's entry dates
+  // Compute longest streak by sorting each user's entry dates where they submitted actual sadhana
   let maxStreak = 0;
   let sevenDayStreaksCount = 0;
   for (const uid of Array.from(userIds)) {
-    const userDates = Array.from(new Set(entries.filter((e) => e.user_id === uid).map((e) => e.date))).sort();
+    const userDates = Array.from(new Set(activeEntries.filter((e) => e.user_id === uid).map((e) => e.date))).sort();
     let currentStreak = 0;
     let uMax = 0;
     for (let i = 0; i < userDates.length; i++) {
@@ -378,7 +393,7 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   // 10. Center-wise Engagement Table
   const centerGroups = new Map<string, { users: number; dau: number; logs: number }>();
   profiles.forEach((p) => {
-    const bId = p.bace_id || 'other';
+    const bId = p.practice_type === 'personal' || !p.bace_id ? 'personal_practice' : p.bace_id;
     const curr = centerGroups.get(bId) || { users: 0, dau: 0, logs: 0 };
     curr.users++;
     if (todayActiveUsers.has(p.id)) curr.dau++;
@@ -387,7 +402,9 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   });
 
   const centerEngagement = Array.from(centerGroups.entries()).map(([bId, stat]) => {
-    const centerName = bacesMap.get(bId) || (bId === 'other' ? 'Main Center' : 'BACE');
+    const centerName = bId === 'personal_practice'
+      ? 'Personal Practice (B2C) 🪷'
+      : (bacesMap.get(bId) || 'Center');
     const compRate = stat.users > 0 ? Math.min(100, Math.round((stat.dau / stat.users) * 100)) : 0;
     return {
       center: centerName.replace(/^BACE\s+/i, ''),
@@ -406,11 +423,14 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
   const sparklineAct = [activationRate, activationRate, activationRate, activationRate];
 
   // Dynamic Key Insights from live numbers
+  const b2cUsersCount = profiles.filter((p) => p.practice_type === 'personal' || !p.bace_id).length;
+  const b2bUsersCount = totalUsers - b2cUsersCount;
+
   const liveInsights = [
     `${activationRate}% of registered devotees have activated their daily spiritual logging habit.`,
-    `${dau} devotee(s) submitted their Sadhana log today (${logCompletionRate}% completion rate).`,
-    `${totalUsers} total registered devotees tracked across ${centerEngagement.length || 1} center(s).`,
-    `Longest unbroken spiritual discipline streak recorded: ${maxStreak || 1} days.`,
+    `${dau} devotee(s) recorded at least one sadhana activity today (${logCompletionRate}% active rate).`,
+    `${b2bUsersCount} B2B center devotees & ${b2cUsersCount} independent personal practitioners (B2C) tracked.`,
+    `Longest unbroken spiritual discipline streak recorded: ${maxStreak} days.`,
     `${targetsCount || 0} devotees have active personalized sadhana targets set.`,
   ];
 
@@ -445,9 +465,9 @@ async function computeRealDatabaseAnalytics(centerId: string = 'all'): Promise<A
     streaks: {
       sevenDayPlus: sevenDayStreaksCount,
       sevenDayPlusGrowth: 15,
-      avgLoggingDays: +(totalEntriesCount / Math.max(1, totalUsers * 7)).toFixed(1) || 3.8,
+      avgLoggingDays: +(activeEntries.length / Math.max(1, totalUsers * 7)).toFixed(1) || 0,
       avgLoggingDaysGrowth: 0.5,
-      longestStreakDays: maxStreak || 7,
+      longestStreakDays: maxStreak,
       usersWithGoals: targetsCount || 0,
       usersWithGoalsGrowth: 12,
     },

@@ -176,13 +176,15 @@ export const AdminAnalytics: React.FC = () => {
                 <span>
                   {selectedCenter === 'all'
                     ? 'All Centers'
+                    : selectedCenter === 'personal'
+                    ? 'Personal Practice (B2C)'
                     : centers.find((c) => c.id === selectedCenter)?.name || 'Center'}
                 </span>
                 <ChevronDown size={14} className="text-slate-400" />
               </button>
 
               {showCenterMenu && (
-                <div className="absolute right-0 mt-1.5 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl py-1.5 z-30 animate-scale-up">
+                <div className="absolute right-0 mt-1.5 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-1.5 z-30 animate-scale-up">
                   <button
                     onClick={() => {
                       setSelectedCenter('all');
@@ -193,6 +195,17 @@ export const AdminAnalytics: React.FC = () => {
                     }`}
                   >
                     All Centers
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedCenter('personal');
+                      setShowCenterMenu(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-xs font-bold transition-colors cursor-pointer ${
+                      selectedCenter === 'personal' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    Personal Practice (B2C) 🪷
                   </button>
                   {centers.map((c) => (
                     <button

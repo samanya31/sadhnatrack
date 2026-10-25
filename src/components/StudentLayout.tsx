@@ -27,9 +27,25 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  const [baceName, setBaceName] = useState<string | null>(null);
+
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserEmail(user.email ?? null);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        setUserEmail(user.email ?? null);
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('bace_id, practice_type, bace:baces!bace_id(name)')
+          .eq('id', user.id)
+          .maybeSingle();
+        const baceData: any = prof?.bace;
+        const bName = Array.isArray(baceData) ? baceData[0]?.name : baceData?.name;
+        if (bName) {
+          setBaceName(bName);
+        } else if (prof?.practice_type === 'personal' || !prof?.bace_id) {
+          setBaceName('Personal Practice 🪷');
+        }
+      }
     });
   }, []);
 
@@ -79,8 +95,8 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
             <div className="hidden md:flex h-10 w-[1px] bg-slate-200/60 mx-2"></div>
             <div className="hidden md:flex items-center gap-4">
               <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200/50 shadow-sm">
-                <div className="w-2 h-2 bg-primary-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-black text-slate-800 uppercase tracking-[0.2em]">BACE</span>
+                <div className={`w-2 h-2 ${baceName?.includes('Personal') ? 'bg-emerald-500' : 'bg-primary-500'} rounded-full animate-pulse`}></div>
+                <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{baceName || 'BACE'}</span>
               </div>
             </div>
           </div>

@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react';
 import { StudentLayout } from '../components/StudentLayout';
 import { AICoachCard } from '../components/AICoachCard';
+import { PersonalBenchmarksModal } from '../components/PersonalBenchmarksModal';
 import { supabase } from '../lib/supabase';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Settings } from 'lucide-react';
 
 export const StudentAICoach = () => {
   const [userId, setUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [isPersonal, setIsPersonal] = useState(false);
+  const [isStandardsModalOpen, setIsStandardsModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         setUserId(user.id);
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('bace_id, practice_type')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (prof?.practice_type === 'personal' || !prof?.bace_id) {
+          setIsPersonal(true);
+        }
       }
       setLoading(false);
     });
@@ -31,9 +43,21 @@ export const StudentAICoach = () => {
               <span>AI Sadhna Coach</span>
             </h1>
             <p className="text-slate-500 mt-1 font-medium text-lg">
-              Personalized spiritual progress analysis grounded in your center's benchmarks
+              {isPersonal 
+                ? 'Personalized spiritual progress analysis grounded in your personal sadhana standards' 
+                : 'Personalized spiritual progress analysis grounded in your center\'s benchmarks'}
             </p>
           </div>
+
+          {isPersonal && (
+            <button
+              onClick={() => setIsStandardsModalOpen(true)}
+              className="px-5 py-3 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 text-slate-800 hover:text-emerald-700 shadow-sm font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer hover:shadow-md"
+            >
+              <Settings size={16} className="text-emerald-600" />
+              <span>My Personal Sadhana Standards</span>
+            </button>
+          )}
         </div>
 
         {/* AI Sadhna Coach Core Card */}
@@ -43,7 +67,17 @@ export const StudentAICoach = () => {
             <p className="text-xs font-bold text-slate-500">Loading AI Sadhna Coach...</p>
           </div>
         ) : (
-          userId && <AICoachCard userId={userId} />
+          userId && <AICoachCard key={refreshKey} userId={userId} />
+        )}
+
+        {/* Modal for setting Personal Standards */}
+        {userId && (
+          <PersonalBenchmarksModal
+            userId={userId}
+            isOpen={isStandardsModalOpen}
+            onClose={() => setIsStandardsModalOpen(false)}
+            onSaved={() => setRefreshKey((k) => k + 1)}
+          />
         )}
 
       </div>

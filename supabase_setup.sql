@@ -49,6 +49,10 @@ BEGIN
     ALTER TABLE public.profiles ADD COLUMN force_password_change BOOLEAN DEFAULT true NOT NULL;
   END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'practice_type') THEN
+    ALTER TABLE public.profiles ADD COLUMN practice_type TEXT DEFAULT 'center' CHECK (practice_type IN ('center', 'personal'));
+  END IF;
+
   ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
   ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('student', 'admin', 'super_admin'));
 END $$;
@@ -272,21 +276,23 @@ BEGIN
   v_created_by_admin := COALESCE((new.raw_user_meta_data->>'created_by_admin')::boolean, false);
   v_force_change := COALESCE((new.raw_user_meta_data->>'force_password_change')::boolean, v_created_by_admin);
 
-  INSERT INTO public.profiles (id, email, full_name, role, bace_id, gender, force_password_change)
+  INSERT INTO public.profiles (id, email, full_name, role, bace_id, gender, force_password_change, practice_type)
   VALUES (
     new.id, 
     new.email, 
     COALESCE(new.raw_user_meta_data->>'full_name', 'Student'), 
     COALESCE(new.raw_user_meta_data->>'role', 'student'),
-    (new.raw_user_meta_data->>'bace_id')::uuid,
+    NULLIF(new.raw_user_meta_data->>'bace_id', '')::uuid,
     NULLIF(new.raw_user_meta_data->>'gender', ''),
-    v_force_change
+    v_force_change,
+    COALESCE(new.raw_user_meta_data->>'practice_type', CASE WHEN NULLIF(new.raw_user_meta_data->>'bace_id', '') IS NOT NULL THEN 'center' ELSE 'personal' END)
   )
   ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
     role = EXCLUDED.role,
-    bace_id = COALESCE(EXCLUDED.bace_id, public.profiles.bace_id),
-    gender = COALESCE(EXCLUDED.gender, public.profiles.gender);
+    bace_id = EXCLUDED.bace_id,
+    gender = COALESCE(EXCLUDED.gender, public.profiles.gender),
+    practice_type = EXCLUDED.practice_type;
   
   IF COALESCE(new.raw_user_meta_data->>'role', 'student') = 'admin' AND (new.raw_user_meta_data->>'bace_id') IS NOT NULL THEN
     INSERT INTO public.admin_baces (admin_id, bace_id)

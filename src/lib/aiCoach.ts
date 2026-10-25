@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { fetchCenterBenchmarks, type OrganizationBenchmark } from './benchmarks';
+import { fetchCenterBenchmarks, fetchPersonalBenchmarks, type OrganizationBenchmark } from './benchmarks';
 import { subDays, format } from 'date-fns';
 
 export interface ReportSections {
@@ -88,12 +88,17 @@ export const checkCachedSadhanaReport = async (
 const generateDeterministicFallbackReport = (
   timeRangeDays: number,
   snapshot: Record<string, any>,
-  benchmarks: Record<string, OrganizationBenchmark>
+  benchmarks: Record<string, OrganizationBenchmark>,
+  isPersonal: boolean = false
 ): ReportSections => {
+  const targetRounds = benchmarks.target_rounds?.target_value || '16';
   const wakeupTarget = benchmarks.wakeup_time?.target_value || '04:30';
   const japaTarget = benchmarks.japa_completion_time?.target_value || '12:00';
   const targetDailyReadingMins = parseInt(benchmarks.reading_minutes?.target_value || '30', 10) || 30;
   const targetTotalReadingHours = (targetDailyReadingMins * timeRangeDays) / 60;
+
+  const benchmarkLabel = isPersonal ? 'Personal standard' : 'Center benchmark';
+  const standardPrefix = isPersonal ? 'your personal sadhana standard' : 'your center\'s configured benchmark';
 
   const whatWentWell: string[] = [];
   const whatDeclined: string[] = [];
@@ -108,10 +113,10 @@ const generateDeterministicFallbackReport = (
     whatWentWell.push(`Maintained strong logging consistency (${safeLogsSubmitted}/${timeRangeDays} days logged).`);
   }
   if (snapshot.totalReadingHours >= targetTotalReadingHours * 0.6) {
-    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period (Center benchmark: ${targetTotalReadingHours.toFixed(1)} hrs).`);
+    whatWentWell.push(`Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period (${benchmarkLabel}: ${targetTotalReadingHours.toFixed(1)} hrs).`);
   }
   if (snapshot.japaByNoonRate >= 60) {
-    whatWentWell.push(`Finished Japa rounds before center target time (${japaTarget}) on ${Math.round(snapshot.japaByNoonRate)}% of logged days.`);
+    whatWentWell.push(`Finished your ${targetRounds} daily rounds before target time (${japaTarget}) on ${Math.round(snapshot.japaByNoonRate)}% of logged days.`);
   } else if (whatWentWell.length === 0) {
     whatWentWell.push('Showed dedicated intent by recording daily spiritual endeavors.');
   }
@@ -121,13 +126,13 @@ const generateDeterministicFallbackReport = (
     whatDeclined.push(`Log submission rate dropped to ${Math.round(snapshot.submissionRate)}% (${timeRangeDays - safeLogsSubmitted} days unrecorded).`);
   }
   if (snapshot.totalReadingHours < targetTotalReadingHours * 0.6) {
-    whatDeclined.push(`Reading (Svadhyaya) totaled only ${snapshot.totalReadingHours.toFixed(1)} hours over ${timeRangeDays} days (below center target of ${targetTotalReadingHours.toFixed(1)} hrs).`);
+    whatDeclined.push(`Reading (Svadhyaya) totaled only ${snapshot.totalReadingHours.toFixed(1)} hours over ${timeRangeDays} days (below ${standardPrefix} of ${targetTotalReadingHours.toFixed(1)} hrs).`);
   }
   if (snapshot.japaByNoonRate < 50) {
     whatDeclined.push(`Late Japa completion observed — completed before ${japaTarget} on only ${Math.round(snapshot.japaByNoonRate)}% of days.`);
   }
   if (snapshot.avgWakeupDecimal && snapshot.avgWakeupDecimal > 6.0) {
-    whatDeclined.push(`Average wake-up time shifted later to ${snapshot.avgWakeup} (Center benchmark target is ${wakeupTarget}).`);
+    whatDeclined.push(`Average wake-up time shifted later to ${snapshot.avgWakeup} (${benchmarkLabel} target is ${wakeupTarget}).`);
   }
   if (snapshot.avgDailyExerciseMins < 15) {
     whatDeclined.push(`Physical exercise averaged only ${snapshot.avgDailyExerciseMins}m/day (below the 15m daily health minimum). Physical lethargy directly impacts Japa alertness.`);
@@ -151,12 +156,13 @@ const generateDeterministicFallbackReport = (
   if (snapshot.activeTargetsCount > 0) {
     goalPerformance.push(`${snapshot.targetsCompletedCount} of ${snapshot.activeTargetsCount} active spiritual targets currently completed.`);
   } else {
-    goalPerformance.push('No specific active targets set for this period. Setting weekly targets improves habit retention.');
+    goalPerformance.push(isPersonal ? 'No active personal sadhana standards configured yet. Setting personal standards improves habit retention.' : 'No specific active targets set for this period. Setting weekly targets improves habit retention.');
   }
 
   // Recommendations
-  recommendations.push(`According to your center's configured benchmark (${wakeupTarget}), aim to gradually shift wake-up time 15 minutes earlier.`);
-  recommendations.push(`Complete at least 4-8 rounds of Japa in Brahma Muhurta before 7:00 AM.`);
+  const brahmaRounds = Math.max(1, Math.round((parseInt(targetRounds, 10) || 16) / 2));
+  recommendations.push(`According to ${standardPrefix} (${wakeupTarget}), aim to gradually shift wake-up time 15 minutes earlier.`);
+  recommendations.push(`Complete at least ${brahmaRounds} rounds of Japa in Brahma Muhurta before 7:00 AM.`);
   if (snapshot.avgDailyExerciseMins < 15) {
     recommendations.push(`Commit to at least 15-20 minutes of daily physical exercise (brisk walk, yoga, or workout) to maintain physical stamina and avoid health fatigue.`);
   } else {
@@ -198,8 +204,11 @@ export const generateSadhanaReport = async (
     .eq('id', userId)
     .single();
 
+  const isPersonal = userProfile?.practice_type === 'personal' || !userProfile?.bace_id;
   const baceId = userProfile?.bace_id || null;
-  const benchmarks = await fetchCenterBenchmarks(baceId);
+  const benchmarks = isPersonal
+    ? await fetchPersonalBenchmarks(userId)
+    : await fetchCenterBenchmarks(baceId);
 
   const { data: entries } = await supabase
     .from('sadhana_entries')
@@ -258,7 +267,7 @@ export const generateSadhanaReport = async (
 
   const snapshot = {
     userName: userProfile?.full_name || 'Devotee',
-    baceName: userProfile?.bace?.name || 'Center',
+    baceName: isPersonal ? 'Personal Practice' : (userProfile?.bace?.name || 'Center'),
     timeRangeDays,
     logsSubmitted: logsSubmittedCount,
     submissionRate: Math.min(100, (userEntries.length / timeRangeDays) * 100),
@@ -278,12 +287,21 @@ export const generateSadhanaReport = async (
 
   if (apiKey) {
     try {
-      const promptText = `
-You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana logs for ${snapshot.userName} (${snapshot.baceName}).
+      const standardSectionHeader = isPersonal ? '[MY PERSONAL SADHANA STANDARDS]' : '[CENTER CONFIGURABLE BENCHMARKS]';
+      const standardCitation = isPersonal
+        ? 'According to your personal sadhana standard...'
+        : 'According to your center\'s configured benchmark...';
+      const mentorIntro = isPersonal
+        ? `You are an experienced, compassionate ISKCON Spiritual Mentor analyzing independent personal sadhana logs for ${snapshot.userName} (Personal Practice Track).`
+        : `You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana logs for ${snapshot.userName} (${snapshot.baceName}).`;
 
-[CENTER CONFIGURABLE BENCHMARKS]
+      const promptText = `
+${mentorIntro}
+
+${standardSectionHeader}
+- Daily Japa Rounds Target: ${benchmarks.target_rounds?.target_value || '16'} rounds
 - Wake-up Target: ${benchmarks.wakeup_time?.target_value || '04:30 AM'}
-- Japa Target Completion: ${benchmarks.japa_completion_time?.target_value || '12:00 PM'}
+- Japa Target Completion: Finish ${benchmarks.target_rounds?.target_value || '16'} rounds by ${benchmarks.japa_completion_time?.target_value || '12:00 PM'}
 - Daily Reading Target: ${benchmarks.reading_minutes?.target_value || '30'} minutes
 - Daily Hearing Target: ${benchmarks.hearing_minutes?.target_value || '30'} minutes
 
@@ -297,13 +315,13 @@ You are an experienced, compassionate ISKCON Spiritual Mentor analyzing sadhana 
 - Active Targets Progress: ${snapshot.targetsCompletedCount} / ${snapshot.activeTargetsCount} targets completed
 
 [ANALYTICAL RIGOR & HEALTH VALIDITY RULES]
-1. Always ground statements in: "According to your center's configured benchmark..." when referencing benchmarks.
+1. Always ground statements in: "${standardCitation}" when referencing benchmarks or personal standards.
 2. DO NOT claim overconfident statistical correlation on small observation windows (${timeRangeDays} days).
    - For 7-day windows: Use observational phrasing like "On days you woke earlier, you generally completed Japa earlier."
    - For 30-day windows: Use defensible analytical phrasing like "Over the last 30 days, earlier wake-up times were associated with faster Japa completion."
 3. PHYSICAL HEALTH & EXERCISE RULE: If average daily exercise is less than 15 minutes/day (${snapshot.avgDailyExerciseMins}m/day), explicitly warn in "whatDeclined" or "recommendations" that insufficient physical activity causes physical lethargy, reduced mental alertness during Japa, and long-term health consequences. Recommend at least 15–20 mins of daily physical exercise (brisk walk/yoga/workout).
 4. READING & HEARING HOUR PHRASING: Total reading hours (${snapshot.totalReadingHours.toFixed(1)} hrs) represents the total cumulative reading over the entire ${timeRangeDays}-day period. NEVER call it "daily reading" — phrasing MUST be "Completed ${snapshot.totalReadingHours.toFixed(1)} hours of reading (Svadhyaya) over this period."
-5. READING BENCHMARK EVALUATION: The center target for reading is ${benchmarks.reading_minutes?.target_value || '30'} mins/day (which equals ${((parseInt(benchmarks.reading_minutes?.target_value || '30', 10) * timeRangeDays) / 60).toFixed(1)} hrs total over ${timeRangeDays} days). Compare total reading against this target:
+5. READING BENCHMARK EVALUATION: The ${isPersonal ? 'personal standard' : 'center target'} for reading is ${benchmarks.reading_minutes?.target_value || '30'} mins/day (which equals ${((parseInt(benchmarks.reading_minutes?.target_value || '30', 10) * timeRangeDays) / 60).toFixed(1)} hrs total over ${timeRangeDays} days). Compare total reading against this target:
    - If total reading is >= 60% of target, list under "whatWentWell".
    - If total reading is < 60% of target (e.g., 3.1 hrs over 30 days when target is 15 hrs), list under "whatDeclined" or "recommendations" as needing focus, NEVER under "whatWentWell".
 
@@ -347,10 +365,10 @@ Return ONLY a valid JSON object matching this exact schema without markdown form
       }
     } catch (err) {
       console.warn('Gemini API call failed or unconfigured, fallback to rule engine:', err);
-      sections = generateDeterministicFallbackReport(timeRangeDays, snapshot, benchmarks);
+      sections = generateDeterministicFallbackReport(timeRangeDays, snapshot, benchmarks, isPersonal);
     }
   } else {
-    sections = generateDeterministicFallbackReport(timeRangeDays, snapshot, benchmarks);
+    sections = generateDeterministicFallbackReport(timeRangeDays, snapshot, benchmarks, isPersonal);
   }
 
   return {

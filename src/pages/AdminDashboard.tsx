@@ -102,7 +102,9 @@ export const AdminDashboard = () => {
       if (pErr) throw pErr;
 
       let targetStudents = allProfiles || [];
-      if (selectedBace !== 'all') {
+      if (selectedBace === 'personal') {
+        targetStudents = targetStudents.filter(p => !p.bace_id || p.practice_type === 'personal');
+      } else if (selectedBace !== 'all') {
         targetStudents = targetStudents.filter(p => p.bace_id === selectedBace);
       } else if (userProfile.role === 'admin') {
         const myBaceIds = new Set(baces.map(b => b.id));
@@ -129,7 +131,9 @@ export const AdminDashboard = () => {
       }
 
       const centerNameObj = baces.find(b => b.id === selectedBace);
-      const centerName = selectedBace === 'all' ? 'All Assigned Centers' : (centerNameObj?.name || 'Center');
+      const centerName = selectedBace === 'personal'
+        ? 'Personal Practitioners (B2C)'
+        : (selectedBace === 'all' ? 'All Assigned Centers' : (centerNameObj?.name || 'Center'));
 
       // 4. Send Brevo Digest Email to the Logged-In Admin
       await sendBrevoMissingSadhanaDigest({
@@ -227,7 +231,9 @@ export const AdminDashboard = () => {
 
       let list = (data || []).filter(p => p.role === 'student');
 
-      if (selectedBace !== 'all') {
+      if (selectedBace === 'personal') {
+        list = list.filter(p => !p.bace_id || p.practice_type === 'personal');
+      } else if (selectedBace !== 'all') {
         list = list.filter(p => p.bace_id === selectedBace);
       } else if (userProfile?.role === 'admin') {
         const myBaceIds = new Set(baces.map(b => b.id));
@@ -279,7 +285,9 @@ export const AdminDashboard = () => {
       // Filter out activity log entries belonging to admins or super admins
       data = data.filter(e => e.user?.role !== 'admin' && e.user?.role !== 'super_admin');
 
-      if (selectedBace !== 'all') {
+      if (selectedBace === 'personal') {
+        data = data.filter(e => !e.user?.bace_id || e.user?.practice_type === 'personal');
+      } else if (selectedBace !== 'all') {
         data = data.filter(e => e.user?.bace_id === selectedBace);
       } else if (userProfile?.role === 'admin') {
         const myBaceIds = new Set(baces.map(b => b.id));
@@ -786,7 +794,10 @@ export const AdminDashboard = () => {
                     className="bg-slate-50 border-none outline-none font-black text-slate-700 py-3 px-6 rounded-xl cursor-pointer text-xs uppercase tracking-widest focus:ring-2 focus:ring-primary-500/20"
                   >
                     {userProfile?.role === 'super_admin' ? (
-                      <option value="all">Global View (All BACEs)</option>
+                      <>
+                        <option value="all">Global View (All BACEs)</option>
+                        <option value="personal">Personal Practitioners (B2C) 🪷</option>
+                      </>
                     ) : (
                       <option value="all">All My Centers ({baces.length})</option>
                     )}
@@ -821,7 +832,7 @@ export const AdminDashboard = () => {
           </div>
 
           <CenterBenchmarksModal
-            baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' ? null : selectedBace) : userProfile?.bace_id || null}
+            baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' || selectedBace === 'personal' ? null : selectedBace) : userProfile?.bace_id || null}
             baceName={userProfile?.bace?.name || 'Center'}
             isOpen={isBenchmarksModalOpen}
             onClose={() => setIsBenchmarksModalOpen(false)}
@@ -841,7 +852,7 @@ export const AdminDashboard = () => {
           )}
 
           {/* Smart Mentoring Intelligence Card */}
-          <AdminIntelligenceCard baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' ? null : selectedBace) : userProfile?.bace_id} />
+          <AdminIntelligenceCard baceId={userProfile?.role === 'super_admin' ? (selectedBace === 'all' || selectedBace === 'personal' ? null : selectedBace) : userProfile?.bace_id} />
 
           {activeTab === 'logs' ? (
             <div className="space-y-6">
@@ -962,7 +973,7 @@ export const AdminDashboard = () => {
                   onClick={() => {
                     setRegData(prev => ({
                       ...prev,
-                      baceId: prev.baceId || (selectedBace !== 'all' ? selectedBace : (baces[0]?.id || userProfile?.bace_id || ''))
+                      baceId: prev.baceId || (selectedBace !== 'all' && selectedBace !== 'personal' ? selectedBace : (baces[0]?.id || userProfile?.bace_id || ''))
                     }));
                     setIsModalOpen(true);
                   }} 
