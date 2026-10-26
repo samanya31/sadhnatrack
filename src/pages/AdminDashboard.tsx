@@ -26,7 +26,9 @@ import {
   MailWarning,
   Settings,
   Eye,
-  EyeOff
+  EyeOff,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { sendBrevoMissingSadhanaDigest } from '../lib/brevo';
 import { format } from 'date-fns';
@@ -87,6 +89,66 @@ export const AdminDashboard = () => {
 
   const [sendingDigest, setSendingDigest] = useState(false);
   const [digestStatusMessage, setDigestStatusMessage] = useState<string | null>(null);
+
+  const [studentToDelete, setStudentToDelete] = useState<any | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [deletingStudent, setDeletingStudent] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleConfirmDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    if (deleteConfirmationText.trim().toUpperCase() !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm.');
+      return;
+    }
+
+    setDeletingStudent(true);
+    setDeleteError(null);
+
+    try {
+      const studentId = studentToDelete.id;
+
+      // 1. Try deleting via RPC if function exists
+      let rpcSucceeded = false;
+      try {
+        const { error: rpcErr } = await supabase.rpc('delete_user_account', { target_user_id: studentId });
+        if (!rpcErr) {
+          rpcSucceeded = true;
+        }
+      } catch {
+        rpcSucceeded = false;
+      }
+
+      // 2. Direct database cleanup
+      if (!rpcSucceeded) {
+        await supabase.from('sadhana_entries').delete().eq('user_id', studentId);
+        await supabase.from('sadhana_targets').delete().eq('user_id', studentId);
+        const { error: profDelErr } = await supabase.from('profiles').delete().eq('id', studentId);
+        if (profDelErr) {
+          console.warn('Direct profile delete warning:', profDelErr);
+        }
+      }
+
+      // 3. Update local state
+      setProfiles(prev => prev.filter(p => p.id !== studentId));
+      setEntries(prev => prev.filter(e => e.user_id !== studentId));
+
+      if (selectedStudent === studentId) {
+        setSelectedStudent(null);
+      }
+      if (drilldownStudent?.id === studentId) {
+        setDrilldownStudent(null);
+      }
+
+      setDigestStatusMessage(`✅ Successfully deleted student account for ${studentToDelete.full_name || 'student'}.`);
+      setStudentToDelete(null);
+      setDeleteConfirmationText('');
+    } catch (err: any) {
+      setDeleteError(err.message || 'Failed to delete student account.');
+    } finally {
+      setDeletingStudent(false);
+    }
+  };
 
   const handleSendDigestEmail = async () => {
     if (!userProfile) return;
@@ -466,10 +528,25 @@ export const AdminDashboard = () => {
                   <p className="text-slate-500 font-medium text-sm">{selectedProfile?.email}</p>
                 </div>
               </div>
-              <button onClick={() => exportToExcel(selectedProfile.id, selectedProfile.full_name)} className="bg-emerald-800 text-white rounded-2xl h-14 px-8 flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-900 transition-all active:scale-95 font-black text-sm">
-                <FileSpreadsheet size={20} />
-                Export to Excel
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button onClick={() => exportToExcel(selectedProfile.id, selectedProfile.full_name)} className="bg-emerald-800 text-white rounded-2xl h-14 px-8 flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-900 transition-all active:scale-95 font-black text-sm cursor-pointer">
+                  <FileSpreadsheet size={20} />
+                  Export to Excel
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setStudentToDelete(selectedProfile);
+                    setDeleteConfirmationText('');
+                    setDeleteError(null);
+                  }}
+                  className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-2xl h-14 px-6 flex items-center justify-center gap-2 transition-all active:scale-95 font-black text-sm cursor-pointer"
+                  title="Delete Student"
+                >
+                  <Trash2 size={18} />
+                  <span>Delete Student</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -987,7 +1064,24 @@ export const AdminDashboard = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                 {profiles.map(profile => (
-                  <button key={profile.id} onClick={() => setSelectedStudent(profile.id)} className="glass-card p-6 rounded-[2rem] flex flex-col items-center text-center gap-4 hover:border-primary-300 hover:shadow-2xl transition-all group border border-slate-100">
+                  <div 
+                    key={profile.id} 
+                    onClick={() => setSelectedStudent(profile.id)} 
+                    className="glass-card p-6 rounded-[2rem] flex flex-col items-center text-center gap-4 hover:border-primary-300 hover:shadow-2xl transition-all group border border-slate-100 relative cursor-pointer"
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStudentToDelete(profile);
+                        setDeleteConfirmationText('');
+                        setDeleteError(null);
+                      }}
+                      className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all md:opacity-0 md:group-hover:opacity-100 cursor-pointer"
+                      title="Delete Student Account"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                     <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-100 rounded-[1.5rem] flex items-center justify-center font-black text-2xl md:text-3xl text-slate-500 group-hover:bg-primary-600 group-hover:text-white transition-all">{profile.full_name?.charAt(0)}</div>
                     <div>
                       <p className="font-black text-slate-900 text-lg md:text-xl tracking-tight">{profile.full_name}</p>
@@ -998,7 +1092,7 @@ export const AdminDashboard = () => {
                       )}
                       <p className="text-xs font-bold text-slate-400 mt-1 truncate max-w-[200px]">{profile.email}</p>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1108,6 +1202,96 @@ export const AdminDashboard = () => {
                 {regLoading ? <Loader2 className="animate-spin" size={24} /> : <UserPlus size={24} />} {regLoading ? 'Registering...' : 'Add Student'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Student Confirmation Modal */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-6 sm:p-8 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setStudentToDelete(null);
+                setDeleteConfirmationText('');
+                setDeleteError(null);
+              }}
+              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mb-5">
+              <AlertTriangle size={28} />
+            </div>
+
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">Delete Student Account</h3>
+            <p className="text-xs text-slate-500 font-medium mt-2 leading-relaxed">
+              Are you sure you want to permanently delete the student account for{' '}
+              <span className="font-bold text-slate-900">{studentToDelete.full_name || 'this student'}</span> ({studentToDelete.email})?
+            </p>
+
+            <div className="my-5 p-3.5 bg-red-50/70 border border-red-200 rounded-xl text-xs text-red-800 space-y-1">
+              <p className="font-bold">⚠️ Warning: Irreversible Action</p>
+              <p className="text-[11px] text-red-700">
+                All daily sadhana entries, streak logs, spiritual targets, and coaching records will be permanently erased.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                  Type <span className="font-black text-red-600 font-mono">DELETE</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 font-mono font-bold text-sm outline-none transition-all"
+                  autoFocus
+                />
+              </div>
+
+              {deleteError && (
+                <p className="text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                  {deleteError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentToDelete(null);
+                    setDeleteConfirmationText('');
+                    setDeleteError(null);
+                  }}
+                  disabled={deletingStudent}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 font-bold text-xs text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteStudent}
+                  disabled={deletingStudent || deleteConfirmationText.trim().toUpperCase() !== 'DELETE'}
+                  className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {deletingStudent ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={16} />
+                      <span>Delete Account</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { generateSadhanaReport, saveSadhanaReport, type SADHANAReportResult } from '../lib/aiCoach';
-import { Sparkles, CheckCircle2, TrendingUp, AlertTriangle, Compass, Target, Lightbulb, Copy, Save, RefreshCw, Clock } from 'lucide-react';
+import { Sparkles, CheckCircle2, TrendingUp, AlertTriangle, Compass, Target, Lightbulb, Copy, Save, RefreshCw, Clock, Cpu } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface AICoachCardProps {
@@ -160,19 +160,34 @@ ${report.sections.recommendations.map((s) => `• ${s}`).join('\n')}
       {report && !loading && (
         <div className="space-y-6 animate-fade-in">
           
-          {/* Metadata & Cache Indicator */}
+          {/* Metadata, Engine & Cache Indicator */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
             <div className="flex items-center gap-2 text-slate-600 font-mono text-[11px]">
               <Clock size={14} className="text-slate-400" />
               <span>Period: <strong>{report.timeRangeStart}</strong> to <strong>{report.timeRangeEnd}</strong></span>
             </div>
 
-            {report.isCached && (
-              <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100 flex items-center gap-1">
-                <CheckCircle2 size={12} />
-                <span>Cached from last 24h</span>
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Engine Badge */}
+              {report.modelUsed.includes('gemini') ? (
+                <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-xs">
+                  <Sparkles size={12} className="text-indigo-600 animate-pulse" />
+                  <span>Google Gemini AI</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-black text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-xs">
+                  <Cpu size={12} className="text-amber-600" />
+                  <span>Built-in Analytics Engine</span>
+                </span>
+              )}
+
+              {report.isCached && (
+                <span className="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100 flex items-center gap-1">
+                  <CheckCircle2 size={12} />
+                  <span>Cached</span>
+                </span>
+              )}
+            </div>
           </div>
 
           {/* 5 Structured Sections */}
@@ -247,9 +262,16 @@ ${report.sections.recommendations.map((s) => `• ${s}`).join('\n')}
 
           {/* Footer Controls: Save & Copy */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-3">
-            <span className="text-[11px] font-mono text-slate-400">
-              Engine: <code className="text-indigo-600 font-bold">{report.modelUsed}</code>
-            </span>
+            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500">
+              <span>Engine:</span>
+              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
+                report.modelUsed.includes('gemini')
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}>
+                {report.modelUsed.includes('gemini') ? `✨ ${report.modelUsed}` : `⚙️ ${report.modelUsed}`}
+              </span>
+            </div>
 
             <div className="flex items-center gap-3">
               <button

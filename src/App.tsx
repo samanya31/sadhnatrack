@@ -6,6 +6,7 @@ import { StudentHistory } from './pages/StudentHistory';
 import { StudentReports } from './pages/StudentReports';
 import { StudentTargets } from './pages/StudentTargets';
 import { StudentAICoach } from './pages/StudentAICoach';
+import { StudentSettings } from './pages/StudentSettings';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminReports } from './pages/AdminReports';
 import { AdminBaces } from './pages/AdminBaces';
@@ -256,10 +257,10 @@ function App() {
         <Route 
           path="/admin/analytics" 
           element={
-            session && (role === 'admin' || role === 'super_admin') ? (
+            session && role === 'super_admin' ? (
               <AdminAnalytics />
             ) : (
-              <Navigate to={session ? "/dashboard" : "/login"} replace />
+              <Navigate to={session ? ((role === 'admin') ? "/admin" : "/dashboard") : "/login"} replace />
             )
           } 
         />
@@ -276,8 +277,21 @@ function App() {
         />
 
         <Route 
+          path="/settings" 
+          element={
+            session ? (
+              (role === 'admin' || role === 'super_admin') ? <Navigate to="/admin" replace /> : <StudentSettings />
+            ) : <Navigate to="/login" replace />
+          } 
+        />
+
+        <Route 
           path="/change-password" 
-          element={session ? <ForceChangePassword /> : <Navigate to="/login" replace />} 
+          element={
+            session ? (
+              (role === 'admin' || role === 'super_admin') ? <ForceChangePassword /> : <StudentSettings />
+            ) : <Navigate to="/login" replace />
+          } 
         />
 
         <Route path="/" element={<Navigate to={session ? ((role === 'admin' || role === 'super_admin') ? "/admin" : "/dashboard") : "/login"} replace />} />

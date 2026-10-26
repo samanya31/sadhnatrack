@@ -76,6 +76,15 @@ export const Login = () => {
   const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
   const [forgotResendTimer, setForgotResendTimer] = useState(0);
 
+  // Check for deleted account query parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('deleted') === 'true') {
+      setSuccessMessage('Your account and spiritual tracking data have been permanently deleted. Wishing you the best on your spiritual journey. 🙏');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Countdown timer for Resend OTP (Signup and Forgot Password)
   useEffect(() => {
     let interval: any = null;

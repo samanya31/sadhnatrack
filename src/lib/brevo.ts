@@ -58,16 +58,32 @@ export const sendBrevoEmail = async ({
 };
 
 /**
- * Send a 6-digit OTP code via Brevo API for Password Reset or Account Verification.
+ * Send a 6-digit OTP code via Brevo API for Password Reset, Account Verification, or Deletion.
  */
-export const sendBrevoOtpEmail = async (toEmail: string, otpCode: string, type: 'reset' | 'signup' = 'reset') => {
+export const sendBrevoOtpEmail = async (
+  toEmail: string,
+  otpCode: string,
+  type: 'reset' | 'signup' | 'deletion' = 'reset',
+  centerName?: string
+) => {
   const isReset = type === 'reset';
-  const subject = isReset 
+  const isDeletion = type === 'deletion';
+
+  const subject = isDeletion
+    ? `⚠️ ${otpCode} is your Account Deletion Security Code - Sadhana Track`
+    : isReset 
     ? `${otpCode} is your Password Reset Code - Sadhana Track` 
     : `${otpCode} is your Verification Code - Sadhana Track`;
 
-  const title = isReset ? 'Reset Your Password' : 'Verify Your Account';
-  const description = isReset 
+  const title = isDeletion
+    ? 'Authorize Account Deletion'
+    : isReset 
+    ? 'Reset Your Password' 
+    : 'Verify Your Account';
+
+  const description = isDeletion
+    ? `You have requested to permanently delete your student account${centerName ? ` associated with ${centerName}` : ''}. If this was you, use the 6-digit verification code below to authorize deletion. Warning: All your sadhana logs, habit targets, and progress will be permanently erased.`
+    : isReset 
     ? 'You requested to reset your password for your Sadhana Track account. Use the 6-digit verification code below:' 
     : 'Welcome to Sadhana Track! Use the 6-digit verification code below to verify your account:';
 
@@ -80,11 +96,12 @@ export const sendBrevoOtpEmail = async (toEmail: string, otpCode: string, type: 
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fdfaf5; margin: 0; padding: 40px 20px; }
         .card { max-width: 500px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
         .header { text-align: center; margin-bottom: 30px; }
-        .logo { font-size: 24px; font-weight: 900; color: #ea580c; text-transform: uppercase; letter-spacing: 2px; }
+        .logo { font-size: 24px; font-weight: 900; color: ${isDeletion ? '#dc2626' : '#ea580c'}; text-transform: uppercase; letter-spacing: 2px; }
         .title { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 10px; }
         .text { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; text-align: center; }
-        .otp-box { background: #fff7ed; border: 2px dashed #fdba74; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 24px; }
-        .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 8px; color: #c2410c; font-family: monospace; }
+        .otp-box { background: ${isDeletion ? '#fef2f2' : '#fff7ed'}; border: 2px dashed ${isDeletion ? '#f87171' : '#fdba74'}; padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 24px; }
+        .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 8px; color: ${isDeletion ? '#b91c1c' : '#c2410c'}; font-family: monospace; }
+        .warning-box { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; font-size: 12px; color: #9f1239; font-weight: 600; text-align: center; }
         .footer { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 30px; }
       </style>
     </head>
@@ -94,11 +111,12 @@ export const sendBrevoOtpEmail = async (toEmail: string, otpCode: string, type: 
           <div className="logo">Sadhana Track</div>
           <div className="title">${title}</div>
         </div>
+        ${isDeletion ? '<div className="warning-box">⚠️ Security Notice: Account deletion is permanent and cannot be reversed.</div>' : ''}
         <p className="text">${description}</p>
         <div className="otp-box">
           <div className="otp-code">${otpCode}</div>
         </div>
-        <p className="text" style="font-size: 12px; color: #94a3b8;">This code is valid for 10 minutes. If you did not request this code, please ignore this email.</p>
+        <p className="text" style="font-size: 12px; color: #94a3b8;">This code is valid for 10 minutes. If you did not request this, please change your password immediately.</p>
         <div className="footer">
           &copy; ${new Date().getFullYear()} Sadhana Track. All rights reserved.
         </div>

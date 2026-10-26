@@ -9,8 +9,8 @@ import {
   History,
   Target,
   Home,
-  Lock,
-  Sparkles
+  Sparkles,
+  Settings
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -63,7 +63,7 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
     { name: 'Sadhana History', path: '/history', icon: History, description: 'View past logs' },
     { name: 'Analytical Reports', path: '/reports', icon: BarChart3, description: 'View analytics' },
     { name: 'AI Sadhna Coach', path: '/ai-coach', icon: Sparkles, description: 'AI Sadhana Report' },
-    { name: 'Change Password', path: '/change-password', icon: Lock, description: 'Update password' },
+    { name: 'Account & FAQs', path: '/settings', icon: Settings, description: 'Security, FAQs & account' },
   ];
 
   return (
@@ -112,10 +112,10 @@ export const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
                   Active
                 </div>
                 <button 
-                  onClick={() => navigate('/change-password')}
+                  onClick={() => navigate('/settings')}
                   className="px-2.5 py-1 text-slate-400 hover:text-primary-600 rounded-full text-[9px] font-black uppercase tracking-wider border border-slate-200/50 hover:bg-slate-50 transition-all cursor-pointer"
                 >
-                  Change Password
+                  Settings & FAQs
                 </button>
               </div>
             </div>

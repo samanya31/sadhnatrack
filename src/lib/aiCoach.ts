@@ -335,8 +335,8 @@ Return ONLY a valid JSON object matching this exact schema without markdown form
 }
       `;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      let response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -346,6 +346,21 @@ Return ONLY a valid JSON object matching this exact schema without markdown form
           }),
         }
       );
+
+      // Fallback to gemini-flash-latest if needed
+      if (!response.ok) {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptText }] }],
+              generationConfig: { responseMimeType: 'application/json' },
+            }),
+          }
+        );
+      }
 
       const resData = await response.json();
       const rawText = resData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -359,7 +374,7 @@ Return ONLY a valid JSON object matching this exact schema without markdown form
           goalPerformance: parsed.goalPerformance || [],
           recommendations: parsed.recommendations || [],
         };
-        modelUsed = 'gemini-1.5-flash';
+        modelUsed = 'gemini-3.5-flash-lite';
       } else {
         throw new Error('No text returned from Gemini API');
       }

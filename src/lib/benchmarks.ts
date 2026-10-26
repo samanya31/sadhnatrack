@@ -90,7 +90,7 @@ export const fetchPersonalBenchmarks = async (
     // 1. Try fetching from profiles
     const { data: prof } = await supabase
       .from('profiles')
-      .select('personal_benchmarks')
+      .select('*')
       .eq('id', userId)
       .maybeSingle();
 
